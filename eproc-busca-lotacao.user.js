@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         eproc - busca de lotação
 // @namespace    eproc
-// @version      2.1
+// @version      2.2
 // @match        *://*.jus.br/*
 // @grant        none
 // ==/UserScript==
@@ -16,10 +16,8 @@ function normalizar(txt){
 }
 
 function buscaInteligente(texto, busca){
-
     const palavrasBusca = normalizar(busca).split(/\s+/).filter(Boolean);
     const textoNormalizado = normalizar(texto);
-
     return palavrasBusca.every(p => textoNormalizado.includes(p));
 }
 
@@ -50,7 +48,6 @@ function criarBusca(select){
     input.style.marginRight = "6px";
     input.style.fontSize = "13px";
 
-    // coloca a busca antes do botão
     select.parentNode.insertBefore(input, select);
 
     input.addEventListener("input", function(){
@@ -75,7 +72,12 @@ function criarBusca(select){
 
 function iniciar(){
 
-    const select = document.querySelector("select");
+    // procura apenas select dentro da barra superior do sistema
+    const header = document.querySelector("header, .navbar, .topbar");
+
+    if(!header) return;
+
+    const select = header.querySelector("select");
 
     if(!select) return;
 
