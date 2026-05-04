@@ -28,7 +28,7 @@ Instalação
 Instale a extensão Tampermonkey no seu navegador
 Clique no link abaixo para instalar o script:
 
-👉  Instalar script
+👉  [Instalar script](https://raw.githubusercontent.com/rsalvessap/eproc-busca-lotacao/main/eproc-busca-lotacao.user.js)
 
 O Tampermonkey vai abrir uma tela de confirmação. Clique em Instalar.
 
