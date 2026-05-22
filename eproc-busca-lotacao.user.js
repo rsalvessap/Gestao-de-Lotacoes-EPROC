@@ -2,7 +2,8 @@
 // @name         Gestão de Lotações - EPROC
 // @namespace    eproc-gestao-lotacoes
 // @version      1.6
-// @match        *://eproc*.jus.br/*
+// @include      *://*eproc*.jus.br/*
+// @include      *://*/eproc/*
 // @grant        none
 // ==/UserScript==
 
