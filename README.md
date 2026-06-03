@@ -23,11 +23,11 @@ Isso é necessário para o Tampermonkey rodar o script sem bloqueio.
 
 ## Instalação
 
-👉 [Clique aqui para instalar o script](https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js)
+👉 [Clique aqui para instalar o script](https://cdn.jsdelivr.net/gh/rsalvessap/Gestao-de-Lotacoes-EPROC@main/eproc-busca-lotacao.user.js)
 
 O Tampermonkey abrirá uma tela de confirmação → clique em **Instalar**.
 
-> **Redes corporativas (ex: TJSP):** se o link acima for bloqueado pelo proxy, acesse a página do script no GitHub, clique em **Raw**, copie todo o conteúdo e cole em um novo script no Tampermonkey manualmente.
+> Este link usa o CDN jsDelivr, que funciona inclusive nas redes corporativas do TJSP.
 
 ---
 
