@@ -2,7 +2,8 @@
 // @name         Gestão de Lotações - EPROC
 // @namespace    eproc-gestao-lotacoes
 // @version      1.5
-// @match        *://*.jus.br/*
+// @match        https://eproc1g.tjsp.jus.br/*
+// @match        https://eproc2g.tjsp.jus.br/*
 // @grant        none
 // ==/UserScript==
 
@@ -401,8 +402,20 @@
     }
 
     // --- EXCLUIR ---
-    window.confirm = () => true;
-    window.alert = () => {};
+    // Os overrides de alert/confirm são ativados apenas durante a exclusão automática
+    // para suprimir diálogos nativos do eProc entre cada remoção, e restaurados ao final.
+    const _originalAlert   = window.alert.bind(window);
+    const _originalConfirm = window.confirm.bind(window);
+
+    function ativarModoSilencioso() {
+        window.alert   = () => {};
+        window.confirm = () => true;
+    }
+
+    function restaurarDialogos() {
+        window.alert   = _originalAlert;
+        window.confirm = _originalConfirm;
+    }
 
     function pegarLotacoesAtuais() {
         const linhas = document.querySelectorAll("#tabelaUsuarios > tbody > tr");
@@ -416,6 +429,7 @@
     }
 
     function excluirSequencial(lotacoes) {
+        ativarModoSilencioso();
         localStorage.setItem("EPROC_EXCLUIR", JSON.stringify(lotacoes.map(l => ({ lotacao: l.lotacao, perfil: l.perfil }))));
         localStorage.setItem("EPROC_EXCLUIR_TOTAL", lotacoes.length);
         localStorage.setItem("EPROC_EXCLUIR_CONCLUIDAS", JSON.stringify([]));
@@ -431,6 +445,7 @@
             localStorage.removeItem("EPROC_EXCLUIR");
             localStorage.removeItem("EPROC_EXCLUIR_TOTAL");
             localStorage.removeItem("EPROC_EXCLUIR_CONCLUIDAS");
+            restaurarDialogos();
             mostrarProgresso(total, total, concluidas, null, true);
             return;
         }
@@ -595,6 +610,7 @@
     document.body.appendChild(btnExcluir);
 
     if (localStorage.getItem("EPROC_EXCLUIR")) {
+        ativarModoSilencioso();
         setTimeout(() => {
             if (document.querySelector("#tabelaUsuarios > tbody > tr")) excluirProxima();
         }, 2000);
