@@ -1,6 +1,8 @@
-# Gestão de Lotações (SUPORTE) — Script Tampermonkey para o eProc
+# Gestão de Lotações — Script Tampermonkey para o eProc
 
 Script para Tampermonkey que reúne, em um só lugar, diversas ferramentas para facilitar a administração de lotações de usuários no sistema eProc. Desenvolvido para tornar as tarefas de busca, inclusão e exclusão de lotações mais rápidas, intuitivas e eficientes.
+
+**Versão atual:** 1.6
 
 ---
 
@@ -17,46 +19,38 @@ Isso é necessário para o Tampermonkey rodar o script sem bloqueio.
 - Vá em **Configurações → Extensões**
 - No canto superior direito, ative **Modo do desenvolvedor**
 
-### 3. Configurações do Tampermonkey
-
-- Clique no ícone do Tampermonkey → **Painel** → **Configurações**
-- Confirme que estas opções estão ativas:
-  - Permitir scripts de usuário
-  - Permitir acesso a abas
-  - Permitir requisições remotas
-  - Modo estrito desativado *(se existir no seu navegador)*
-
 ---
 
-## Instalação do script
+## Instalação
 
-1. Instale a extensão Tampermonkey no seu navegador *(veja os pré-requisitos acima)*
-2. Clique no link abaixo para instalar o script:
+👉 [Clique aqui para instalar o script](https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js)
 
-👉 [Instalar script](https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js)
+O Tampermonkey abrirá uma tela de confirmação → clique em **Instalar**.
 
-3. O Tampermonkey abrirá uma tela de confirmação → clique em **Instalar**
+> **Redes corporativas (ex: TJSP):** se o link acima for bloqueado pelo proxy, acesse a página do script no GitHub, clique em **Raw**, copie todo o conteúdo e cole em um novo script no Tampermonkey manualmente.
 
 ---
 
 ## Funcionalidades
 
-### 🔍 Busca de lotações *(todas as páginas)*
+### Busca de lotações *(todas as páginas)*
 
-- Campo de busca por nome da lotação disponível diretamente na barra superior do sistema
-- Não é necessário saber o código da lotação
+- Campo de busca por nome da lotação diretamente na barra superior do sistema
 - Busca inteligente por múltiplas palavras, ignorando acentos e maiúsculas/minúsculas
 - Histórico de navegação entre lotações com botões de voltar e avançar
-- Botão de atalho para alternar rapidamente para a lotação **Administrador do Sistema**
+- **Botões de atalho de perfil** — aparecem apenas quando o usuário possui o perfil disponível:
+  - Administrador do Sistema
+  - Gerente de Usuários
+  - Jus Postulandi
 
-### ➕ Inclusão de lotações em lote *(tela de usuário)*
+### Inclusão de lotações em lote *(tela de usuário)*
 
 - Seleção prévia do tipo de perfil antes da inclusão
 - Lista completa de lotações disponíveis com campo de filtro
 - Seleção múltipla com opção de marcar ou desmarcar tudo
 - Contador em tempo real das lotações selecionadas
 
-### ➖ Exclusão de lotações em lote *(tela de usuário)*
+### Exclusão de lotações em lote *(tela de usuário)*
 
 - Lista das lotações vinculadas ao usuário, com indicação do perfil
 - Filtro por nome da lotação e por tipo de perfil
@@ -65,8 +59,11 @@ Isso é necessário para o Tampermonkey rodar o script sem bloqueio.
 
 ---
 
-## Requisitos
+## Compatibilidade
 
-- Navegador Chrome, Firefox ou Edge
-- Extensão Tampermonkey instalada
-- Acesso ao sistema eProc (`*.jus.br`)
+| Ambiente | Suporte |
+|---|---|
+| `eproc*.tjsp.jus.br` | ✅ |
+| `*-1g-*.tjsp.jus.br` | ✅ |
+| `*-2g-*.tjsp.jus.br` | ✅ |
+| `sso-*.tjsc.jus.br` | ✅ |
