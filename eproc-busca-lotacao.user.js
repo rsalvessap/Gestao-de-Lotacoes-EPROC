@@ -87,11 +87,27 @@
     // ==============================
     // SVGs
     // ==============================
+    // Pessoa com engrenagem → Administrador do Sistema
     const SVG_ADM = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="9" cy="7" r="3"/>
         <path d="M3 20c0-4 2.7-7 6-7h1"/>
         <circle cx="17.5" cy="16.5" r="2"/>
         <path d="M17.5 13.5v1m0 4v1m2.6-4.5-.7.7m-3.8 3.8-.7.7m4.5 0-.7-.7m-3.8-3.8-.7-.7m-1 3H13m9 0h-1"/>
+    </svg>`;
+    // Duas pessoas → Gerente de Usuários
+    const SVG_GERENTE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>`;
+    // Balança → Jus Postulandi
+    const SVG_JUS = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+        <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+        <path d="M7 21h10"/>
+        <line x1="12" y1="3" x2="12" y2="21"/>
+        <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>
     </svg>`;
     const SVG_VOLTAR  = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
     const SVG_AVANCAR = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
@@ -191,26 +207,37 @@
             navegarPara(select, pos + 1, hist[pos + 1].value);
         };
 
-        const btnAdmin = document.createElement("button");
-        btnAdmin.type = "button";
-        btnAdmin.innerHTML = SVG_ADM;
-        btnAdmin.title = "Alternar para Administrador do Sistema";
-        btnAdmin.style = ESTILO_BTN;
-        btnAdmin.onclick = (e) => {
-            e.preventDefault();
-            const optAdmin = Array.from(select.options).find(opt =>
-                normalizarBusca(opt.text).includes("administrador do sistema")
+        // Cria botão de atalho apenas se o usuário tem aquele perfil disponível no select.
+        // Retorna null se a lotação não existe entre as opções do usuário logado.
+        function criarBotaoPerfil(termoBusca, svgIcon, titulo) {
+            const optPerfil = Array.from(select.options).find(opt =>
+                normalizarBusca(opt.text).includes(normalizarBusca(termoBusca))
             );
-            if (!optAdmin) { alert("Lotação 'Administrador do Sistema' não encontrada."); return; }
-            registrarLotacao(optAdmin.value, optAdmin.text);
-            const hist = getHistorico();
-            const pos  = getPosicao();
-            navegarPara(select, pos, optAdmin.value);
-        };
+            if (!optPerfil) return null;
+
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.innerHTML = svgIcon;
+            btn.title = titulo;
+            btn.style = ESTILO_BTN;
+            btn.onclick = (e) => {
+                e.preventDefault();
+                registrarLotacao(optPerfil.value, optPerfil.text);
+                navegarPara(select, getPosicao(), optPerfil.value);
+            };
+            return btn;
+        }
+
+        // Botões de atalho — só aparecem quando o usuário tem o perfil no select
+        const btnAdmin   = criarBotaoPerfil("administrador do sistema", SVG_ADM,    "Alternar para Administrador do Sistema");
+        const btnGerente = criarBotaoPerfil("gerente de usuari",        SVG_GERENTE, "Alternar para Gerente de Usuários");
+        const btnJus     = criarBotaoPerfil("jus postulandi",            SVG_JUS,    "Alternar para Jus Postulandi");
 
         wrapperPos.appendChild(btnVoltar);
         wrapperPos.appendChild(btnAvancar);
-        wrapperPos.appendChild(btnAdmin);
+        if (btnAdmin)   wrapperPos.appendChild(btnAdmin);
+        if (btnGerente) wrapperPos.appendChild(btnGerente);
+        if (btnJus)     wrapperPos.appendChild(btnJus);
         select.after(wrapperPos);
 
         atualizarBotoesNav();
