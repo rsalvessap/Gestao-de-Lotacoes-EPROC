@@ -1,7 +1,9 @@
 // ==UserScript==
 // @name         Gestão de Lotações - EPROC
 // @namespace    eproc-gestao-lotacoes
-// @version      1.6
+// @version      1.7
+// @updateURL    https://cdn.jsdelivr.net/gh/rsalvessap/Gestao-de-Lotacoes-EPROC@main/eproc-busca-lotacao.user.js
+// @downloadURL  https://cdn.jsdelivr.net/gh/rsalvessap/Gestao-de-Lotacoes-EPROC@main/eproc-busca-lotacao.user.js
 // @include      *://eproc*.tjsp.jus.br/*
 // @include      *://*-1g-*.tjsp.jus.br/*
 // @include      *://*-2g-*.tjsp.jus.br/*
