@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gestão de Lotações - EPROC
 // @namespace    eproc-gestao-lotacoes
-// @version      1.9
+// @version      1.10
 // @updateURL    https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js
 // @downloadURL  https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js
 // @include      *://eproc*.tjsp.jus.br/*
@@ -943,14 +943,14 @@
         btnIncluir.type = "button";
         btnIncluir.className = "eproc-button-primary";
         btnIncluir.style.marginLeft = "4px";
-        btnIncluir.textContent = "Incluir lotações";
+        btnIncluir.textContent = "Incluir Em Lote";
         btnIncluir.onclick = iniciarInclusao;
 
         const btnExcluir = document.createElement("button");
         btnExcluir.type = "button";
         btnExcluir.className = "eproc-button-primary";
         btnExcluir.style.marginLeft = "4px";
-        btnExcluir.textContent = "Excluir lotações";
+        btnExcluir.textContent = "Excluir Em Lote";
         btnExcluir.onclick = iniciarExclusao;
 
         btnNativo.after(btnIncluir, btnExcluir);
