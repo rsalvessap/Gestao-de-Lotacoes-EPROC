@@ -104,47 +104,6 @@
                 filter: none !important;
             }
 
-            /* === Botões flutuantes (FAB) === */
-            .eproc-gl-fab {
-                position: fixed;
-                right: 20px;
-                z-index: 99999;
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
-                padding: 11px 20px;
-                border: none;
-                border-radius: 28px;
-                font-family: Arial, sans-serif;
-                font-size: 14px;
-                font-weight: 700;
-                cursor: pointer;
-                transition: transform 0.2s ease, box-shadow 0.2s ease;
-                letter-spacing: 0.2px;
-            }
-            .eproc-gl-fab:hover  { transform: translateY(-3px); }
-            .eproc-gl-fab:active { transform: translateY(-1px); }
-            .eproc-gl-fab-primary {
-                bottom: 20px;
-                background: #1565c0;
-                color: white;
-                box-shadow: 0 4px 14px rgba(21,101,192,0.45);
-            }
-            .eproc-gl-fab-primary:hover {
-                background: #1976d2;
-                box-shadow: 0 6px 20px rgba(21,101,192,0.55);
-            }
-            .eproc-gl-fab-danger {
-                bottom: 72px;
-                background: #c62828;
-                color: white;
-                box-shadow: 0 4px 14px rgba(198,40,40,0.45);
-            }
-            .eproc-gl-fab-danger:hover {
-                background: #d32f2f;
-                box-shadow: 0 6px 20px rgba(198,40,40,0.55);
-            }
-
             /* === Botões de navegação (header) === */
             .eproc-gl-nav-btn {
                 display: inline-flex;
@@ -970,19 +929,32 @@
     }
 
     // ==============================
-    // BOTÕES FLUTUANTES (FAB)
+    // BOTÕES DE AÇÃO — inseridos ao lado do botão nativo (#btnIncUsu)
+    // Aguarda o botão nativo aparecer (carregamento dinâmico da tela de lotações)
     // ==============================
-    const btnIncluir = document.createElement("button");
-    btnIncluir.className = "eproc-gl-fab eproc-gl-fab-primary";
-    btnIncluir.innerHTML = `${SVG_PLUS} Incluir lotações`;
-    btnIncluir.onclick = iniciarInclusao;
-    document.body.appendChild(btnIncluir);
+    let _botoesAcaoCriados = false;
+    const _timerBotoesAcao = setInterval(() => {
+        const btnNativo = document.querySelector("#btnIncUsu");
+        if (!btnNativo || _botoesAcaoCriados) return;
+        _botoesAcaoCriados = true;
+        clearInterval(_timerBotoesAcao);
 
-    const btnExcluir = document.createElement("button");
-    btnExcluir.className = "eproc-gl-fab eproc-gl-fab-danger";
-    btnExcluir.innerHTML = `${SVG_MINUS} Excluir lotações`;
-    btnExcluir.onclick = iniciarExclusao;
-    document.body.appendChild(btnExcluir);
+        const btnIncluir = document.createElement("button");
+        btnIncluir.type = "button";
+        btnIncluir.className = "eproc-button-primary";
+        btnIncluir.style.marginLeft = "4px";
+        btnIncluir.textContent = "Incluir lotações";
+        btnIncluir.onclick = iniciarInclusao;
+
+        const btnExcluir = document.createElement("button");
+        btnExcluir.type = "button";
+        btnExcluir.className = "eproc-button-primary";
+        btnExcluir.style.marginLeft = "4px";
+        btnExcluir.textContent = "Excluir lotações";
+        btnExcluir.onclick = iniciarExclusao;
+
+        btnNativo.after(btnIncluir, btnExcluir);
+    }, 500);
 
     if (localStorage.getItem("EPROC_EXCLUIR")) {
         ativarModoSilencioso();
