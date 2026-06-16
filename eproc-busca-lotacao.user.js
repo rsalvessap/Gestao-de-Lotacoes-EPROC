@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gestão de Lotações - EPROC
 // @namespace    eproc-gestao-lotacoes
-// @version      1.7
+// @version      1.8
 // @updateURL    https://cdn.jsdelivr.net/gh/rsalvessap/Gestao-de-Lotacoes-EPROC@main/eproc-busca-lotacao.user.js
 // @downloadURL  https://cdn.jsdelivr.net/gh/rsalvessap/Gestao-de-Lotacoes-EPROC@main/eproc-busca-lotacao.user.js
 // @include      *://eproc*.tjsp.jus.br/*
@@ -13,6 +13,354 @@
 
 (function () {
     'use strict';
+
+    // ==============================
+    // CSS GLOBAL
+    // ==============================
+    function injetarEstilos() {
+        const id = "eproc-gl-styles";
+        if (document.getElementById(id)) return;
+        const style = document.createElement("style");
+        style.id = id;
+        style.textContent = `
+            /* === Botões base === */
+            .eproc-gl-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-family: Arial, sans-serif;
+                font-size: 13px;
+                font-weight: 600;
+                cursor: pointer;
+                border: none;
+                transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+                white-space: nowrap;
+                text-decoration: none;
+            }
+            .eproc-gl-btn:hover  { filter: brightness(1.08); transform: translateY(-1px); }
+            .eproc-gl-btn:active { transform: translateY(0px); filter: brightness(0.96); }
+
+            /* Variantes */
+            .eproc-gl-btn-primary {
+                background: #1565c0;
+                color: white;
+                box-shadow: 0 2px 6px rgba(21,101,192,0.30);
+            }
+            .eproc-gl-btn-primary:hover {
+                background: #1976d2;
+                box-shadow: 0 4px 12px rgba(21,101,192,0.40);
+            }
+            .eproc-gl-btn-danger {
+                background: #c62828;
+                color: white;
+                box-shadow: 0 2px 6px rgba(198,40,40,0.30);
+            }
+            .eproc-gl-btn-danger:hover {
+                background: #d32f2f;
+                box-shadow: 0 4px 12px rgba(198,40,40,0.40);
+            }
+            .eproc-gl-btn-success {
+                background: #2e7d32;
+                color: white;
+                box-shadow: 0 2px 6px rgba(46,125,50,0.30);
+            }
+            .eproc-gl-btn-success:hover {
+                background: #388e3c;
+                box-shadow: 0 4px 12px rgba(46,125,50,0.40);
+            }
+            .eproc-gl-btn-secondary {
+                background: white;
+                color: #444;
+                border: 1.5px solid #ccc;
+                box-shadow: none;
+            }
+            .eproc-gl-btn-secondary:hover {
+                background: #f5f5f5;
+                border-color: #999;
+                filter: none;
+                transform: none;
+            }
+            .eproc-gl-btn-ghost {
+                background: transparent;
+                color: #1565c0;
+                border: 1.5px solid #1565c0;
+                padding: 5px 12px;
+                font-size: 12px;
+                border-radius: 5px;
+                box-shadow: none;
+                font-weight: 600;
+            }
+            .eproc-gl-btn-ghost:hover {
+                background: #e3f2fd;
+                filter: none;
+                transform: none;
+            }
+            .eproc-gl-btn:disabled {
+                opacity: 0.55;
+                cursor: not-allowed;
+                transform: none !important;
+                filter: none !important;
+            }
+
+            /* === Botões flutuantes (FAB) === */
+            .eproc-gl-fab {
+                position: fixed;
+                right: 20px;
+                z-index: 99999;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 11px 20px;
+                border: none;
+                border-radius: 28px;
+                font-family: Arial, sans-serif;
+                font-size: 14px;
+                font-weight: 700;
+                cursor: pointer;
+                transition: transform 0.2s ease, box-shadow 0.2s ease;
+                letter-spacing: 0.2px;
+            }
+            .eproc-gl-fab:hover  { transform: translateY(-3px); }
+            .eproc-gl-fab:active { transform: translateY(-1px); }
+            .eproc-gl-fab-primary {
+                bottom: 20px;
+                background: #1565c0;
+                color: white;
+                box-shadow: 0 4px 14px rgba(21,101,192,0.45);
+            }
+            .eproc-gl-fab-primary:hover {
+                background: #1976d2;
+                box-shadow: 0 6px 20px rgba(21,101,192,0.55);
+            }
+            .eproc-gl-fab-danger {
+                bottom: 72px;
+                background: #c62828;
+                color: white;
+                box-shadow: 0 4px 14px rgba(198,40,40,0.45);
+            }
+            .eproc-gl-fab-danger:hover {
+                background: #d32f2f;
+                box-shadow: 0 6px 20px rgba(198,40,40,0.55);
+            }
+
+            /* === Botões de navegação (header) === */
+            .eproc-gl-nav-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                border: 1.5px solid #90caf9;
+                border-radius: 5px;
+                background: #e3f2fd;
+                color: #0d47a1;
+                vertical-align: middle;
+                box-sizing: border-box;
+                transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+                padding: 3px 5px;
+            }
+            .eproc-gl-nav-btn:hover {
+                background: #bbdefb;
+                border-color: #42a5f5;
+                box-shadow: 0 2px 6px rgba(13,71,161,0.20);
+            }
+
+            /* === Overlay === */
+            .eproc-gl-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.52);
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+                z-index: 999999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: eproc-gl-fade 0.15s ease;
+            }
+            @keyframes eproc-gl-fade {
+                from { opacity: 0; }
+                to   { opacity: 1; }
+            }
+
+            /* === Modal === */
+            .eproc-gl-modal {
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.28);
+                display: flex;
+                flex-direction: column;
+                font-family: Arial, sans-serif;
+                animation: eproc-gl-slide 0.2s ease;
+                overflow: hidden;
+            }
+            @keyframes eproc-gl-slide {
+                from { opacity: 0; transform: translateY(14px) scale(0.98); }
+                to   { opacity: 1; transform: translateY(0)   scale(1);    }
+            }
+            .eproc-gl-modal-header {
+                padding: 18px 20px 14px;
+                font-size: 15px;
+                font-weight: 700;
+                color: #1a1a1a;
+                border-bottom: 1px solid #ececec;
+            }
+            .eproc-gl-modal-body {
+                padding: 14px 20px;
+                flex: 1;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                gap: 8px;
+            }
+            .eproc-gl-modal-footer {
+                padding: 12px 20px;
+                display: flex;
+                gap: 8px;
+                justify-content: flex-end;
+                border-top: 1px solid #ececec;
+                background: #fafafa;
+            }
+
+            /* === Inputs === */
+            .eproc-gl-input {
+                padding: 7px 10px;
+                border: 1.5px solid #ddd;
+                border-radius: 6px;
+                font-size: 13px;
+                font-family: Arial, sans-serif;
+                transition: border-color 0.15s, box-shadow 0.15s;
+                outline: none;
+                box-sizing: border-box;
+            }
+            .eproc-gl-input:focus {
+                border-color: #1565c0;
+                box-shadow: 0 0 0 3px rgba(21,101,192,0.12);
+            }
+            .eproc-gl-select {
+                padding: 7px 10px;
+                border: 1.5px solid #ddd;
+                border-radius: 6px;
+                font-size: 13px;
+                font-family: Arial, sans-serif;
+                background: white;
+                cursor: pointer;
+                outline: none;
+                transition: border-color 0.15s, box-shadow 0.15s;
+                box-sizing: border-box;
+            }
+            .eproc-gl-select:focus {
+                border-color: #1565c0;
+                box-shadow: 0 0 0 3px rgba(21,101,192,0.12);
+            }
+
+            /* === Lista com checkboxes === */
+            .eproc-gl-list {
+                overflow-y: auto;
+                flex: 1;
+                border: 1.5px solid #e8e8e8;
+                border-radius: 6px;
+                padding: 4px 6px;
+                min-height: 0;
+            }
+            .eproc-gl-list label {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 5px 6px;
+                border-radius: 5px;
+                cursor: pointer;
+                transition: background 0.1s;
+                font-size: 13px;
+                color: #222;
+            }
+            .eproc-gl-list label:hover { background: #f0f6ff; }
+            .eproc-gl-list label input[type="checkbox"] { flex-shrink: 0; accent-color: #1565c0; }
+
+            /* === Barra de controles (marcar/desmarcar) === */
+            .eproc-gl-controls {
+                display: flex;
+                gap: 6px;
+                align-items: center;
+            }
+            .eproc-gl-counter {
+                margin-left: auto;
+                font-size: 12px;
+                color: #666;
+                font-weight: 500;
+                background: #f0f4f8;
+                padding: 3px 8px;
+                border-radius: 12px;
+            }
+
+            /* === Barra de progresso === */
+            .eproc-gl-progress-track {
+                background: #eee;
+                border-radius: 8px;
+                height: 10px;
+                overflow: hidden;
+            }
+            .eproc-gl-progress-bar {
+                height: 100%;
+                border-radius: 8px;
+                transition: width 0.3s ease;
+            }
+            .eproc-gl-progress-bar-active   { background: linear-gradient(90deg, #c62828, #ef5350); }
+            .eproc-gl-progress-bar-done     { background: linear-gradient(90deg, #2e7d32, #43a047); }
+
+            /* === Lista de concluídas === */
+            .eproc-gl-done-list {
+                max-height: 180px;
+                overflow-y: auto;
+                border: 1.5px solid #e8e8e8;
+                border-radius: 6px;
+                padding: 4px 8px;
+                font-size: 12px;
+                color: #444;
+            }
+            .eproc-gl-done-list div {
+                padding: 3px 0;
+                border-bottom: 1px solid #f5f5f5;
+                color: #2e7d32;
+            }
+            .eproc-gl-done-list div:last-child { border-bottom: none; }
+        `;
+        (document.head || document.documentElement).appendChild(style);
+    }
+
+    injetarEstilos();
+
+    // ==============================
+    // SVGs
+    // ==============================
+    const SVG_PLUS  = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+    const SVG_MINUS = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+    // Pessoa com engrenagem → Administrador do Sistema
+    const SVG_ADM = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="7" r="3"/>
+        <path d="M3 20c0-4 2.7-7 6-7h1"/>
+        <circle cx="17.5" cy="16.5" r="2"/>
+        <path d="M17.5 13.5v1m0 4v1m2.6-4.5-.7.7m-3.8 3.8-.7.7m4.5 0-.7-.7m-3.8-3.8-.7-.7m-1 3H13m9 0h-1"/>
+    </svg>`;
+    // Duas pessoas → Gerente de Usuários
+    const SVG_GERENTE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>`;
+    // Balança → Jus Postulandi
+    const SVG_JUS = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+        <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+        <path d="M7 21h10"/>
+        <line x1="12" y1="3" x2="12" y2="21"/>
+        <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>
+    </svg>`;
+    const SVG_VOLTAR  = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
+    const SVG_AVANCAR = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -78,7 +426,7 @@
     }
     function navegarPara(select, novaPos, value) {
         const hist = getHistorico();
-        salvarHistorico(hist, novaPos); // salva posição ANTES do reload
+        salvarHistorico(hist, novaPos);
         sessionStorage.setItem("EPROC_NAVEGANDO", "1");
         select.value = value;
         if (typeof mudarPerfil === "function") {
@@ -87,34 +435,6 @@
             select.dispatchEvent(new Event("change", { bubbles: true }));
         }
     }
-
-    // ==============================
-    // SVGs
-    // ==============================
-    // Pessoa com engrenagem → Administrador do Sistema
-    const SVG_ADM = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="9" cy="7" r="3"/>
-        <path d="M3 20c0-4 2.7-7 6-7h1"/>
-        <circle cx="17.5" cy="16.5" r="2"/>
-        <path d="M17.5 13.5v1m0 4v1m2.6-4.5-.7.7m-3.8 3.8-.7.7m4.5 0-.7-.7m-3.8-3.8-.7-.7m-1 3H13m9 0h-1"/>
-    </svg>`;
-    // Duas pessoas → Gerente de Usuários
-    const SVG_GERENTE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-        <circle cx="9" cy="7" r="4"/>
-        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
-        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-    </svg>`;
-    // Balança → Jus Postulandi
-    const SVG_JUS = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
-        <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
-        <path d="M7 21h10"/>
-        <line x1="12" y1="3" x2="12" y2="21"/>
-        <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>
-    </svg>`;
-    const SVG_VOLTAR  = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
-    const SVG_AVANCAR = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
 
     // ==============================
     // MÓDULO 1 — BUSCA DE LOTAÇÃO (HEADER)
@@ -136,41 +456,25 @@
 
         atualizarTextoCompleto(select);
 
-        // Registra lotação atual ao carregar
         const opt = select.options[select.selectedIndex];
         if (opt) {
             const foiNavegacao = sessionStorage.getItem("EPROC_NAVEGANDO") === "1";
             sessionStorage.removeItem("EPROC_NAVEGANDO");
-            if (!foiNavegacao) {
-                registrarLotacao(opt.value, opt.text);
-            }
-            // Se foi navegação, não registra — posição já foi salva antes do reload
+            if (!foiNavegacao) registrarLotacao(opt.value, opt.text);
         }
 
         const alturaSelect = select.offsetHeight || 28;
-        const ESTILO_BTN = `
-            display:inline-flex;align-items:center;justify-content:center;
-            padding:4px 6px;cursor:pointer;
-            border:1px solid #aaa;border-radius:4px;
-            background:#e3f2fd;color:#0d47a1;
-            vertical-align:middle;
-            height:${alturaSelect}px;box-sizing:border-box;
-        `;
 
         // Campo de busca
         const container = document.createElement("span");
         container.id = "eproc-busca-container";
-        container.style = `display:inline-flex;align-items:center;gap:4px;vertical-align:middle;margin-right:4px`;
+        container.style.cssText = "display:inline-flex;align-items:center;gap:4px;vertical-align:middle;margin-right:4px";
 
         const input = document.createElement("input");
         input.id = "buscaLotacao";
         input.placeholder = "🔎 Buscar lotação...";
-        input.style = `
-            width:180px;padding:4px;font-size:13px;
-            border:1px solid #ccc;border-radius:4px;
-            height:${alturaSelect}px;box-sizing:border-box;
-            vertical-align:middle;
-        `;
+        input.className = "eproc-gl-input";
+        input.style.cssText = `width:180px;height:${alturaSelect}px;padding:3px 8px;font-size:13px`;
         input.addEventListener("input", function () {
             const termo = this.value;
             Array.from(select.options).forEach(opt => {
@@ -183,13 +487,14 @@
 
         // Wrapper botões após select
         const wrapperPos = document.createElement("span");
-        wrapperPos.style = "display:inline-flex;align-items:center;gap:4px;vertical-align:middle;margin-left:4px";
+        wrapperPos.style.cssText = "display:inline-flex;align-items:center;gap:4px;vertical-align:middle;margin-left:4px";
 
         const btnVoltar = document.createElement("button");
         btnVoltar.type = "button";
         btnVoltar.id = "eproc-nav-voltar";
         btnVoltar.innerHTML = SVG_VOLTAR;
-        btnVoltar.style = ESTILO_BTN + "display:none;";
+        btnVoltar.className = "eproc-gl-nav-btn";
+        btnVoltar.style.cssText = `height:${alturaSelect}px;display:none`;
         btnVoltar.onclick = (e) => {
             e.preventDefault();
             const hist = getHistorico();
@@ -202,7 +507,8 @@
         btnAvancar.type = "button";
         btnAvancar.id = "eproc-nav-avancar";
         btnAvancar.innerHTML = SVG_AVANCAR;
-        btnAvancar.style = ESTILO_BTN + "display:none;";
+        btnAvancar.className = "eproc-gl-nav-btn";
+        btnAvancar.style.cssText = `height:${alturaSelect}px;display:none`;
         btnAvancar.onclick = (e) => {
             e.preventDefault();
             const hist = getHistorico();
@@ -211,8 +517,6 @@
             navegarPara(select, pos + 1, hist[pos + 1].value);
         };
 
-        // Cria botão de atalho apenas se o usuário tem aquele perfil disponível no select.
-        // Retorna null se a lotação não existe entre as opções do usuário logado.
         function criarBotaoPerfil(termoBusca, svgIcon, titulo) {
             const optPerfil = Array.from(select.options).find(opt =>
                 normalizarBusca(opt.text).includes(normalizarBusca(termoBusca))
@@ -223,7 +527,8 @@
             btn.type = "button";
             btn.innerHTML = svgIcon;
             btn.title = titulo;
-            btn.style = ESTILO_BTN;
+            btn.className = "eproc-gl-nav-btn";
+            btn.style.cssText = `height:${alturaSelect}px`;
             btn.onclick = (e) => {
                 e.preventDefault();
                 registrarLotacao(optPerfil.value, optPerfil.text);
@@ -232,7 +537,6 @@
             return btn;
         }
 
-        // Botões de atalho — só aparecem quando o usuário tem o perfil no select
         const btnAdmin   = criarBotaoPerfil("administrador do sistema", SVG_ADM,    "Alternar para Administrador do Sistema");
         const btnGerente = criarBotaoPerfil("gerente de usuari",        SVG_GERENTE, "Alternar para Gerente de Usuários");
         const btnJus     = criarBotaoPerfil("jus postulandi",            SVG_JUS,    "Alternar para Jus Postulandi");
@@ -253,7 +557,6 @@
     const href = window.location.href;
     if (!href.includes("controlador.php") || !href.includes("acao=usuario")) return;
 
-    // --- INCLUIR ---
     const TAMANHO_LOTE = 10;
 
     function pegarTiposDisponiveis() {
@@ -303,24 +606,34 @@
         return [...linhas].map(tr => normalizar(tr.innerText || "")).filter(Boolean);
     }
 
+    // ==============================
+    // MODAL: selecionar tipo de perfil
+    // ==============================
     function criarModalTipo(tipos, onConfirmar) {
         const overlay = document.createElement("div");
-        overlay.style = `position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999999;display:flex;align-items:center;justify-content:center`;
+        overlay.className = "eproc-gl-overlay";
+
         const box = document.createElement("div");
-        box.style = `background:white;width:420px;padding:20px;border-radius:8px;font-family:Arial`;
+        box.className = "eproc-gl-modal";
+        box.style.width = "420px";
+
         box.innerHTML = `
-            <h3 style="margin:0 0 16px">Selecionar tipo de perfil</h3>
-            <select id="selTipoPerfil" style="width:100%;padding:8px;font-size:14px;border:1px solid #ccc;border-radius:4px">
-                <option value="">-- Selecione --</option>
-                ${tipos.map(t => `<option value="${t.value}">${t.text}</option>`).join("")}
-            </select>
-            <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-                <button id="cancelarTipo" style="padding:8px 14px;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:white">Cancelar</button>
-                <button id="confirmarTipo" style="padding:8px 14px;background:#0d47a1;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold">Próximo →</button>
+            <div class="eproc-gl-modal-header">Selecionar tipo de perfil</div>
+            <div class="eproc-gl-modal-body">
+                <select id="selTipoPerfil" class="eproc-gl-select" style="width:100%">
+                    <option value="">-- Selecione --</option>
+                    ${tipos.map(t => `<option value="${t.value}">${t.text}</option>`).join("")}
+                </select>
+            </div>
+            <div class="eproc-gl-modal-footer">
+                <button id="cancelarTipo" class="eproc-gl-btn eproc-gl-btn-secondary">Cancelar</button>
+                <button id="confirmarTipo" class="eproc-gl-btn eproc-gl-btn-primary">Próximo →</button>
             </div>
         `;
+
         overlay.appendChild(box);
         document.body.appendChild(overlay);
+
         box.querySelector("#cancelarTipo").onclick = () => overlay.remove();
         box.querySelector("#confirmarTipo").onclick = () => {
             const sel = box.querySelector("#selTipoPerfil");
@@ -330,25 +643,34 @@
         };
     }
 
+    // ==============================
+    // MODAL: incluir lotações
+    // ==============================
     function criarUIIncluir(lotacoes) {
         const overlay = document.createElement("div");
-        overlay.style = `position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999999`;
+        overlay.className = "eproc-gl-overlay";
+
         const box = document.createElement("div");
-        box.style = `background:white;width:600px;max-height:80vh;margin:5vh auto;padding:15px;border-radius:8px;display:flex;flex-direction:column;font-family:Arial`;
+        box.className = "eproc-gl-modal";
+        box.style.cssText = "width:600px;max-height:80vh";
+
         box.innerHTML = `
-            <h3 style="margin:0 0 10px">Selecionar lotações</h3>
-            <input id="filtroLot" placeholder="Filtrar..." style="padding:6px;margin-bottom:6px">
-            <div style="margin-bottom:6px;display:flex;gap:6px;align-items:center">
-                <button id="marcarTodos">Marcar todos</button>
-                <button id="desmarcarTodos">Desmarcar todos</button>
-                <span id="contadorSel" style="margin-left:auto;font-size:13px;color:#555"></span>
+            <div class="eproc-gl-modal-header">Selecionar lotações para incluir</div>
+            <div class="eproc-gl-modal-body">
+                <input id="filtroLot" placeholder="🔎 Filtrar lotações..." class="eproc-gl-input" style="width:100%">
+                <div class="eproc-gl-controls">
+                    <button id="marcarTodos"   class="eproc-gl-btn eproc-gl-btn-ghost">Marcar todos</button>
+                    <button id="desmarcarTodos" class="eproc-gl-btn eproc-gl-btn-ghost">Desmarcar todos</button>
+                    <span id="contadorSel" class="eproc-gl-counter"></span>
+                </div>
+                <div id="listaLot" class="eproc-gl-list"></div>
             </div>
-            <div id="listaLot" style="overflow-y:auto;flex:1;border:1px solid #ccc;padding:6px;min-height:0"></div>
-            <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end">
-                <button id="cancelar" style="padding:8px 14px;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:white">Cancelar</button>
-                <button id="confirmar" style="background:#2e7d32;color:white;padding:8px 14px;border:none;border-radius:4px;cursor:pointer;font-weight:bold">Incluir selecionadas</button>
+            <div class="eproc-gl-modal-footer">
+                <button id="cancelar" class="eproc-gl-btn eproc-gl-btn-secondary">Cancelar</button>
+                <button id="confirmar" class="eproc-gl-btn eproc-gl-btn-success">${SVG_PLUS} Incluir selecionadas</button>
             </div>
         `;
+
         overlay.appendChild(box);
         document.body.appendChild(overlay);
 
@@ -368,16 +690,16 @@
                 .filter(l => !jaTenho.includes(normalizar(l.text)))
                 .filter(l => l.text.toLowerCase().includes(filtro.toLowerCase()));
             if (!visiveis.length) {
-                listaDiv.innerHTML = `<p style="color:#888;font-size:13px">Nenhuma lotação disponível.</p>`;
+                listaDiv.innerHTML = `<p style="color:#888;font-size:13px;padding:8px">Nenhuma lotação disponível.</p>`;
                 atualizarContador();
                 return;
             }
             visiveis.forEach(l => {
                 const d = document.createElement("div");
                 d.innerHTML = `
-                    <label style="display:flex;align-items:center;gap:6px;padding:2px 0;cursor:pointer">
+                    <label>
                         <input type="checkbox" value="${l.value}" data-text="${l.text}">
-                        <span style="font-size:13px">${l.text}</span>
+                        <span>${l.text}</span>
                     </label>
                 `;
                 d.querySelector("input").addEventListener("change", atualizarContador);
@@ -394,9 +716,11 @@
         box.querySelector("#confirmar").onclick = async () => {
             const marcados = [...listaDiv.querySelectorAll("input:checked")];
             if (!marcados.length) { alert("Selecione ao menos uma lotação."); return; }
-            box.querySelector("#confirmar").disabled = true;
-            box.querySelector("#confirmar").textContent = "Aguarde...";
-            box.querySelector("#cancelar").disabled = true;
+            const btnConfirmar = box.querySelector("#confirmar");
+            const btnCancelar  = box.querySelector("#cancelar");
+            btnConfirmar.disabled = true;
+            btnConfirmar.innerHTML = "⏳ Aguarde...";
+            btnCancelar.disabled = true;
             for (let i = 0; i < marcados.length; i += TAMANHO_LOTE) {
                 const lote = marcados.slice(i, i + TAMANHO_LOTE);
                 lote.forEach(c => { try { adicionarNaLista(c.value, c.dataset.text); } catch (e) { console.error(e); } });
@@ -432,9 +756,9 @@
         } catch (e) { console.error(e); alert("❌ " + e); }
     }
 
-    // --- EXCLUIR ---
-    // Os overrides de alert/confirm são ativados apenas durante a exclusão automática
-    // para suprimir diálogos nativos do eProc entre cada remoção, e restaurados ao final.
+    // ==============================
+    // EXCLUIR
+    // ==============================
     const _originalAlert   = window.alert.bind(window);
     const _originalConfirm = window.confirm.bind(window);
 
@@ -503,65 +827,85 @@
 
     function mostrarProgresso(feitas, total, concluidas, atual, finalizado) {
         document.getElementById("eproc-progresso-overlay")?.remove();
+
         const overlay = document.createElement("div");
         overlay.id = "eproc-progresso-overlay";
-        overlay.style = `position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999999;display:flex;align-items:center;justify-content:center`;
+        overlay.className = "eproc-gl-overlay";
+
         const box = document.createElement("div");
-        box.style = `background:white;width:500px;padding:20px;border-radius:8px;font-family:Arial`;
+        box.className = "eproc-gl-modal";
+        box.style.width = "500px";
+
         const pct = total > 0 ? Math.round((feitas / total) * 100) : 0;
+        const corTitulo = finalizado ? "#2e7d32" : "#c62828";
+        const barraClass = finalizado ? "eproc-gl-progress-bar-done" : "eproc-gl-progress-bar-active";
+
         box.innerHTML = `
-            <h3 style="margin:0 0 14px;color:${finalizado ? '#2e7d32' : '#c62828'}">
-                ${finalizado ? '✅ Exclusão concluída' : '⏳ Excluindo lotações...'}
-            </h3>
-            <div style="background:#eee;border-radius:4px;height:18px;overflow:hidden;margin-bottom:8px">
-                <div style="height:100%;width:${pct}%;background:${finalizado ? '#2e7d32' : '#c62828'};border-radius:4px"></div>
+            <div class="eproc-gl-modal-header" style="color:${corTitulo}">
+                ${finalizado ? "✅ Exclusão concluída" : "⏳ Excluindo lotações..."}
             </div>
-            <p style="margin:0 0 10px;font-size:13px;color:#555">
-                ${feitas} de ${total} excluídas (${pct}%)
-                ${!finalizado && atual ? `<br><span style="color:#333">Excluindo: <strong>${atual}</strong></span>` : ''}
-            </p>
-            ${concluidas.length ? `
-                <div style="max-height:200px;overflow-y:auto;border:1px solid #eee;border-radius:4px;padding:6px;font-size:12px;color:#444">
-                    ${concluidas.map(n => `<div style="padding:2px 0;border-bottom:1px solid #f5f5f5">✓ ${n}</div>`).join('')}
+            <div class="eproc-gl-modal-body">
+                <div class="eproc-gl-progress-track">
+                    <div class="eproc-gl-progress-bar ${barraClass}" style="width:${pct}%"></div>
                 </div>
-            ` : ''}
+                <p style="margin:0;font-size:13px;color:#555">
+                    ${feitas} de ${total} excluídas (${pct}%)
+                    ${!finalizado && atual ? `<br><span style="color:#333">Excluindo: <strong>${atual}</strong></span>` : ""}
+                </p>
+                ${concluidas.length ? `
+                    <div class="eproc-gl-done-list">
+                        ${concluidas.map(n => `<div>✓ ${n}</div>`).join("")}
+                    </div>
+                ` : ""}
+            </div>
             ${finalizado ? `
-                <div style="text-align:right;margin-top:14px">
-                    <button id="fecharProgresso" style="padding:8px 16px;background:#2e7d32;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold">Fechar</button>
+                <div class="eproc-gl-modal-footer">
+                    <button id="fecharProgresso" class="eproc-gl-btn eproc-gl-btn-success">Fechar</button>
                 </div>
-            ` : ''}
+            ` : ""}
         `;
+
         overlay.appendChild(box);
         document.body.appendChild(overlay);
         if (finalizado) box.querySelector("#fecharProgresso").onclick = () => overlay.remove();
     }
 
+    // ==============================
+    // MODAL: excluir lotações
+    // ==============================
     function criarUIExcluir(lotacoes) {
         const perfisUnicos = [...new Set(lotacoes.map(l => l.perfil))].sort();
+
         const overlay = document.createElement("div");
-        overlay.style = `position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999999`;
+        overlay.className = "eproc-gl-overlay";
+
         const box = document.createElement("div");
-        box.style = `background:white;width:650px;max-height:80vh;margin:5vh auto;padding:15px;border-radius:8px;display:flex;flex-direction:column;font-family:Arial`;
+        box.className = "eproc-gl-modal";
+        box.style.cssText = "width:650px;max-height:80vh";
+
         box.innerHTML = `
-            <h3 style="margin:0 0 10px">Excluir lotações</h3>
-            <div style="display:flex;gap:6px;margin-bottom:6px">
-                <input id="filtroTexto" placeholder="Filtrar por lotação..." style="flex:1;padding:6px;border:1px solid #ccc;border-radius:4px">
-                <select id="filtroPerfil" style="padding:6px;border:1px solid #ccc;border-radius:4px;min-width:180px">
-                    <option value="">Todos os perfis</option>
-                    ${perfisUnicos.map(p => `<option value="${p}">${p}</option>`).join("")}
-                </select>
+            <div class="eproc-gl-modal-header">Excluir lotações</div>
+            <div class="eproc-gl-modal-body">
+                <div style="display:flex;gap:8px">
+                    <input id="filtroTexto" placeholder="🔎 Filtrar por lotação..." class="eproc-gl-input" style="flex:1">
+                    <select id="filtroPerfil" class="eproc-gl-select" style="min-width:180px">
+                        <option value="">Todos os perfis</option>
+                        ${perfisUnicos.map(p => `<option value="${p}">${p}</option>`).join("")}
+                    </select>
+                </div>
+                <div class="eproc-gl-controls">
+                    <button id="selTodos"   class="eproc-gl-btn eproc-gl-btn-ghost">Marcar todos</button>
+                    <button id="deselTodos" class="eproc-gl-btn eproc-gl-btn-ghost">Desmarcar todos</button>
+                    <span id="contador" class="eproc-gl-counter"></span>
+                </div>
+                <div id="listaExcluir" class="eproc-gl-list"></div>
             </div>
-            <div style="margin-bottom:6px;display:flex;gap:6px;align-items:center">
-                <button id="selTodos">Marcar todos</button>
-                <button id="deselTodos">Desmarcar todos</button>
-                <span id="contador" style="margin-left:auto;font-size:13px;color:#555"></span>
-            </div>
-            <div id="listaExcluir" style="flex:1;overflow-y:auto;border:1px solid #ccc;padding:6px;min-height:0"></div>
-            <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end">
-                <button id="cancelar" style="padding:8px 14px;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:white">Cancelar</button>
-                <button id="confirmar" style="background:#c62828;color:white;padding:8px 14px;border:none;border-radius:4px;cursor:pointer;font-weight:bold">Excluir selecionadas</button>
+            <div class="eproc-gl-modal-footer">
+                <button id="cancelar" class="eproc-gl-btn eproc-gl-btn-secondary">Cancelar</button>
+                <button id="confirmar" class="eproc-gl-btn eproc-gl-btn-danger">${SVG_MINUS} Excluir selecionadas</button>
             </div>
         `;
+
         overlay.appendChild(box);
         document.body.appendChild(overlay);
 
@@ -584,7 +928,7 @@
                 return textoOk && perfilOk;
             });
             if (!visiveis.length) {
-                listaDiv.innerHTML = `<p style="color:#888;font-size:13px">Nenhuma lotação encontrada.</p>`;
+                listaDiv.innerHTML = `<p style="color:#888;font-size:13px;padding:8px">Nenhuma lotação encontrada.</p>`;
                 atualizarContador();
                 return;
             }
@@ -592,9 +936,9 @@
                 const realIndex = lotacoes.indexOf(l);
                 const d = document.createElement("div");
                 d.innerHTML = `
-                    <label style="display:flex;align-items:baseline;gap:6px;padding:3px 0;cursor:pointer">
-                        <input type="checkbox" data-real-index="${realIndex}" style="margin-top:2px;flex-shrink:0">
-                        <span style="font-size:13px">${l.lotacao} <span style="color:#777;font-size:12px">(${l.perfil})</span></span>
+                    <label>
+                        <input type="checkbox" data-real-index="${realIndex}" style="margin-top:1px;flex-shrink:0">
+                        <span>${l.lotacao} <span style="color:#777;font-size:12px">(${l.perfil})</span></span>
                     </label>
                 `;
                 d.querySelector("input").addEventListener("change", atualizarContador);
@@ -626,17 +970,17 @@
     }
 
     // ==============================
-    // BOTÕES FLUTUANTES
+    // BOTÕES FLUTUANTES (FAB)
     // ==============================
     const btnIncluir = document.createElement("button");
-    btnIncluir.textContent = "Incluir lotações";
-    btnIncluir.style = `position:fixed;bottom:20px;right:20px;z-index:99999;background:#0d47a1;color:white;border:none;padding:12px 18px;border-radius:6px;font-weight:bold;cursor:pointer`;
+    btnIncluir.className = "eproc-gl-fab eproc-gl-fab-primary";
+    btnIncluir.innerHTML = `${SVG_PLUS} Incluir lotações`;
     btnIncluir.onclick = iniciarInclusao;
     document.body.appendChild(btnIncluir);
 
     const btnExcluir = document.createElement("button");
-    btnExcluir.textContent = "Excluir lotações";
-    btnExcluir.style = `position:fixed;bottom:70px;right:20px;z-index:99999;background:#c62828;color:white;border:none;padding:12px 18px;border-radius:6px;font-weight:bold;cursor:pointer`;
+    btnExcluir.className = "eproc-gl-fab eproc-gl-fab-danger";
+    btnExcluir.innerHTML = `${SVG_MINUS} Excluir lotações`;
     btnExcluir.onclick = iniciarExclusao;
     document.body.appendChild(btnExcluir);
 
