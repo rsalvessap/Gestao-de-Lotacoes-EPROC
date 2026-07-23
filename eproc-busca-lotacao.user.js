@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gestão de Lotações - EPROC
 // @namespace    eproc-gestao-lotacoes
-// @version      1.11
+// @version      1.12
 // @updateURL    https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js
 // @downloadURL  https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js
 // @include      *://eproc*.tjsp.jus.br/*
@@ -221,24 +221,39 @@
                 position: absolute;
                 top: 100%;
                 left: 0;
-                right: 0;
+                min-width: 100%;
+                width: max-content;
+                max-width: 90vw;
                 background: white;
                 border: 1.5px solid #ccc;
                 border-top: none;
                 border-radius: 0 0 6px 6px;
-                max-height: 260px;
+                max-height: 350px;
                 overflow-y: auto;
                 z-index: 999999;
                 box-shadow: 0 6px 16px rgba(0,0,0,0.15);
                 font-family: Arial, sans-serif;
             }
+            .eproc-gl-dropdown-group {
+                padding: 5px 10px 3px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #fff;
+                background: #37474f;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                position: sticky;
+                top: 0;
+                z-index: 1;
+            }
             .eproc-gl-dropdown-item {
-                padding: 6px 10px;
+                padding: 5px 10px;
                 font-size: 13px;
                 color: #222;
                 cursor: pointer;
                 border-bottom: 1px solid #f0f0f0;
                 transition: background 0.08s;
+                white-space: nowrap;
             }
             .eproc-gl-dropdown-item:last-child { border-bottom: none; }
             .eproc-gl-dropdown-item:hover,
@@ -461,6 +476,21 @@
 
         const alturaSelect = select.offsetHeight || 28;
 
+        // Esconder o select nativo — mantém no DOM para funcionar via JS
+        select.style.display = "none";
+
+        // Mapear optgroups para saber a base de cada option
+        const optGroupMap = new Map();
+        select.querySelectorAll("optgroup").forEach(og => {
+            Array.from(og.children).forEach(o => optGroupMap.set(o, og.label));
+        });
+
+        // Lotação atual para exibir no placeholder
+        function placeholderAtual() {
+            const cur = select.options[select.selectedIndex];
+            return cur ? `🔎 ${cur.text}` : "🔎 Buscar lotação...";
+        }
+
         // Campo de busca
         const container = document.createElement("span");
         container.id = "eproc-busca-container";
@@ -468,9 +498,9 @@
 
         const input = document.createElement("input");
         input.id = "buscaLotacao";
-        input.placeholder = "🔎 Buscar lotação...";
+        input.placeholder = placeholderAtual();
         input.className = "eproc-gl-input";
-        input.style.cssText = `width:260px;height:${alturaSelect}px;padding:3px 8px;font-size:13px`;
+        input.style.cssText = `width:320px;height:${alturaSelect}px;padding:3px 8px;font-size:13px`;
 
         const dropdown = document.createElement("div");
         dropdown.className = "eproc-gl-dropdown";
@@ -489,7 +519,16 @@
                 dropdown.style.display = "block";
                 return;
             }
+            let grupoAtual = null;
             resultados.forEach(opt => {
+                const grupo = optGroupMap.get(opt) || "";
+                if (grupo !== grupoAtual) {
+                    grupoAtual = grupo;
+                    const header = document.createElement("div");
+                    header.className = "eproc-gl-dropdown-group";
+                    header.textContent = grupo || "Geral";
+                    dropdown.appendChild(header);
+                }
                 const item = document.createElement("div");
                 item.className = "eproc-gl-dropdown-item";
                 item.textContent = opt.text;
@@ -508,6 +547,7 @@
             dropdown.style.display = "none";
             registrarLotacao(value, text);
             navegarPara(select, getPosicao(), value);
+            input.placeholder = `🔎 ${text}`;
         }
 
         function moverSelecao(direcao) {
@@ -604,7 +644,7 @@
         if (btnAdmin)   wrapperPos.appendChild(btnAdmin);
         if (btnGerente) wrapperPos.appendChild(btnGerente);
         if (btnJus)     wrapperPos.appendChild(btnJus);
-        select.after(wrapperPos);
+        container.after(wrapperPos);
 
         atualizarBotoesNav();
     }, 500);
