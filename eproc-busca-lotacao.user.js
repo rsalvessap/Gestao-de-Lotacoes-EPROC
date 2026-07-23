@@ -511,9 +511,8 @@
         function renderDropdown(termo) {
             dropdown.innerHTML = "";
             indiceAtivo = -1;
-            if (!termo.trim()) { dropdown.style.display = "none"; return; }
             const resultados = Array.from(select.options)
-                .filter(opt => opt.value && buscaInteligente(opt.text, termo));
+                .filter(opt => opt.value && (!termo.trim() || buscaInteligente(opt.text, termo)));
             if (!resultados.length) {
                 dropdown.innerHTML = `<div class="eproc-gl-dropdown-empty">Nenhuma lotação encontrada</div>`;
                 dropdown.style.display = "block";
@@ -562,6 +561,7 @@
         }
 
         input.addEventListener("input", function () { renderDropdown(this.value); });
+        input.addEventListener("focus", function () { renderDropdown(this.value); });
         input.addEventListener("keydown", function (e) {
             if (dropdown.style.display === "none") return;
             if (e.key === "ArrowDown")  { e.preventDefault(); moverSelecao(1); }
