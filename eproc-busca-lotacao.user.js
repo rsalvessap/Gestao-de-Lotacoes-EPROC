@@ -216,6 +216,43 @@
             }
 
             /* === Lista com checkboxes === */
+            /* === Dropdown de busca (header) === */
+            .eproc-gl-dropdown {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: white;
+                border: 1.5px solid #ccc;
+                border-top: none;
+                border-radius: 0 0 6px 6px;
+                max-height: 260px;
+                overflow-y: auto;
+                z-index: 999999;
+                box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+                font-family: Arial, sans-serif;
+            }
+            .eproc-gl-dropdown-item {
+                padding: 6px 10px;
+                font-size: 13px;
+                color: #222;
+                cursor: pointer;
+                border-bottom: 1px solid #f0f0f0;
+                transition: background 0.08s;
+            }
+            .eproc-gl-dropdown-item:last-child { border-bottom: none; }
+            .eproc-gl-dropdown-item:hover,
+            .eproc-gl-dropdown-item.eproc-gl-dropdown-active {
+                background: #e3f2fd;
+                color: #0d47a1;
+            }
+            .eproc-gl-dropdown-empty {
+                padding: 10px;
+                font-size: 12px;
+                color: #999;
+                text-align: center;
+            }
+
             .eproc-gl-list {
                 overflow-y: auto;
                 flex: 1;
@@ -427,21 +464,83 @@
         // Campo de busca
         const container = document.createElement("span");
         container.id = "eproc-busca-container";
-        container.style.cssText = "display:inline-flex;align-items:center;gap:4px;vertical-align:middle;margin-right:4px";
+        container.style.cssText = "display:inline-flex;align-items:center;gap:4px;vertical-align:middle;margin-right:4px;position:relative";
 
         const input = document.createElement("input");
         input.id = "buscaLotacao";
         input.placeholder = "🔎 Buscar lotação...";
         input.className = "eproc-gl-input";
-        input.style.cssText = `width:180px;height:${alturaSelect}px;padding:3px 8px;font-size:13px`;
-        input.addEventListener("input", function () {
-            const termo = this.value;
-            Array.from(select.options).forEach(opt => {
-                opt.style.display = buscaInteligente(opt.text, termo) ? "" : "none";
+        input.style.cssText = `width:260px;height:${alturaSelect}px;padding:3px 8px;font-size:13px`;
+
+        const dropdown = document.createElement("div");
+        dropdown.className = "eproc-gl-dropdown";
+        dropdown.style.display = "none";
+
+        let indiceAtivo = -1;
+
+        function renderDropdown(termo) {
+            dropdown.innerHTML = "";
+            indiceAtivo = -1;
+            if (!termo.trim()) { dropdown.style.display = "none"; return; }
+            const resultados = Array.from(select.options)
+                .filter(opt => opt.value && buscaInteligente(opt.text, termo));
+            if (!resultados.length) {
+                dropdown.innerHTML = `<div class="eproc-gl-dropdown-empty">Nenhuma lotação encontrada</div>`;
+                dropdown.style.display = "block";
+                return;
+            }
+            resultados.forEach(opt => {
+                const item = document.createElement("div");
+                item.className = "eproc-gl-dropdown-item";
+                item.textContent = opt.text;
+                item.dataset.value = opt.value;
+                item.addEventListener("mousedown", (e) => {
+                    e.preventDefault();
+                    selecionarItem(opt.value, opt.text);
+                });
+                dropdown.appendChild(item);
             });
+            dropdown.style.display = "block";
+        }
+
+        function selecionarItem(value, text) {
+            input.value = "";
+            dropdown.style.display = "none";
+            registrarLotacao(value, text);
+            navegarPara(select, getPosicao(), value);
+        }
+
+        function moverSelecao(direcao) {
+            const itens = dropdown.querySelectorAll(".eproc-gl-dropdown-item");
+            if (!itens.length) return;
+            itens.forEach(i => i.classList.remove("eproc-gl-dropdown-active"));
+            indiceAtivo += direcao;
+            if (indiceAtivo < 0) indiceAtivo = itens.length - 1;
+            if (indiceAtivo >= itens.length) indiceAtivo = 0;
+            itens[indiceAtivo].classList.add("eproc-gl-dropdown-active");
+            itens[indiceAtivo].scrollIntoView({ block: "nearest" });
+        }
+
+        input.addEventListener("input", function () { renderDropdown(this.value); });
+        input.addEventListener("keydown", function (e) {
+            if (dropdown.style.display === "none") return;
+            if (e.key === "ArrowDown")  { e.preventDefault(); moverSelecao(1); }
+            else if (e.key === "ArrowUp") { e.preventDefault(); moverSelecao(-1); }
+            else if (e.key === "Enter") {
+                e.preventDefault();
+                const itens = dropdown.querySelectorAll(".eproc-gl-dropdown-item");
+                if (indiceAtivo >= 0 && itens[indiceAtivo]) {
+                    selecionarItem(itens[indiceAtivo].dataset.value, itens[indiceAtivo].textContent);
+                } else if (itens.length === 1) {
+                    selecionarItem(itens[0].dataset.value, itens[0].textContent);
+                }
+            }
+            else if (e.key === "Escape") { dropdown.style.display = "none"; input.blur(); }
         });
+        input.addEventListener("blur", () => { setTimeout(() => dropdown.style.display = "none", 150); });
 
         container.appendChild(input);
+        container.appendChild(dropdown);
         select.parentNode.insertBefore(container, select);
 
         // Wrapper botões após select
