@@ -343,6 +343,16 @@
 
     injetarEstilos();
 
+    // Retornar ao processo após troca de lotação
+    const _retornarUrl = sessionStorage.getItem("EPROC_RETORNAR_PROCESSO");
+    if (_retornarUrl) {
+        sessionStorage.removeItem("EPROC_RETORNAR_PROCESSO");
+        if (window.location.href !== _retornarUrl) {
+            window.location.href = _retornarUrl;
+            return;
+        }
+    }
+
     // ==============================
     // SVGs
     // ==============================
@@ -395,6 +405,24 @@
 
     function normalizarBusca(txt) {
         return txt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
+
+    // Remove prefixo "Juízo Titular I - ", "Juízo Auxiliar - " etc. do nome do órgão
+    function limparNomeOrgao(txt) {
+        let t = (txt || "").trim();
+        if (/^ju[íi]zo\b/i.test(t) && t.includes(" - ")) {
+            t = t.substring(t.indexOf(" - ") + 3).trim();
+        }
+        return t;
+    }
+
+    // Normalização agressiva para matching órgão↔lotação: ª→a, º→o, só alfanuméricos
+    function normOrgao(txt) {
+        return (txt || "").toLowerCase()
+            .replace(/ª/g, "a").replace(/º/g, "o")
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]+/g, " ")
+            .replace(/\s+/g, " ").trim();
     }
 
     function buscaInteligente(texto, busca) {
@@ -672,7 +700,9 @@
     }
 
     function encontrarLotacaoDoOrgao(orgaoTexto, select) {
-        const orgaoNorm = normalizar(orgaoTexto);
+        const orgaoLimpo = limparNomeOrgao(orgaoTexto);
+        const orgaoNorm = normalizar(orgaoLimpo);
+        const orgaoNormAlt = normOrgao(orgaoLimpo);
 
         // 1ª tentativa: texto normalizado da lotação contido no texto do órgão
         let melhor = null, melhorLen = 0;
@@ -687,7 +717,7 @@
         }
         if (melhor) return melhor;
 
-        // 2ª tentativa: sobreposição de palavras (≥ 60% das palavras da lotação)
+        // 2ª tentativa: sobreposição de palavras (≥ 60%)
         const palavrasOrgao = orgaoNorm.split(/\s+/).filter(p => p.length > 2);
         let melhorScore = 0;
         for (const opt of select.options) {
@@ -703,18 +733,40 @@
         }
         if (melhor) return melhor;
 
-        // 3ª tentativa: correspondência por localidade (cidade/comarca)
-        // Filtra termos judiciais genéricos e cruza apenas nomes de localidade
+        // 3ª tentativa: localidade + número de vara dentro do range
         const locaisOrgao = extrairLocais(orgaoNorm);
+        const numOrgaoMatch = orgaoNormAlt.match(/(\d+)a?\s*vara\b/);
+        const numVara = numOrgaoMatch ? parseInt(numOrgaoMatch[1]) : null;
+
         if (locaisOrgao.length) {
             melhorScore = 0;
             for (const opt of select.options) {
                 if (!opt.value) continue;
-                const locaisLot = extrairLocais(normalizar(opt.text));
+                const lotNorm = normalizar(opt.text);
+                const lotNormAlt = normOrgao(opt.text);
+                const locaisLot = extrairLocais(lotNorm);
                 if (!locaisLot.length) continue;
-                const matches = locaisOrgao.filter(p => locaisLot.includes(p));
-                if (matches.length > 0 && matches.length > melhorScore) {
-                    melhorScore = matches.length;
+
+                const matchesLocais = locaisOrgao.filter(p => locaisLot.includes(p));
+                if (!matchesLocais.length) continue;
+
+                let score = matchesLocais.length;
+
+                // Bônus: número da vara dentro do range da lotação
+                if (numVara !== null) {
+                    const rangeMatch = lotNormAlt.match(/(\d+)a?\s*a\s*(\d+)a?\s*varas?\b/);
+                    if (rangeMatch) {
+                        const min = parseInt(rangeMatch[1]);
+                        const max = parseInt(rangeMatch[2]);
+                        if (numVara >= min && numVara <= max) score += 10;
+                    }
+                    // Também verifica vara única com mesmo número
+                    const singleMatch = lotNormAlt.match(/(\d+)a?\s*vara\b/);
+                    if (singleMatch && parseInt(singleMatch[1]) === numVara) score += 10;
+                }
+
+                if (score > melhorScore) {
+                    melhorScore = score;
                     melhor = opt;
                 }
             }
@@ -730,53 +782,45 @@
         if (!select) return;
         _btnOrgaoCriado = true;
 
+        const orgaoTexto = orgaoSpan.textContent.trim();
+        const lotacaoMatch = encontrarLotacaoDoOrgao(orgaoTexto, select);
+
         const btn = document.createElement("button");
         btn.type = "button";
         btn.id = "eproc-btn-consultar-lotacao";
         btn.className = "eproc-gl-nav-btn";
         btn.style.cssText = "margin-left:8px;padding:4px 10px;font-size:12px;vertical-align:middle;gap:4px;font-weight:600";
-        btn.innerHTML = `${SVG_LUPA} Consultar lotação`;
-        btn.title = "Verificar se você possui a lotação deste órgão julgador";
 
-        let estado = "consultar";
-        let lotacaoMatch = null;
-
-        btn.onclick = () => {
-            if (estado === "consultar") {
-                lotacaoMatch = encontrarLotacaoDoOrgao(orgaoSpan.textContent.trim(), select);
-
-                if (lotacaoMatch) {
-                    if (select.value === lotacaoMatch.value) {
-                        estado = "atual";
-                        btn.innerHTML = `${SVG_CHECK} Lotação atual`;
-                        btn.title = `Você já está nesta lotação: ${lotacaoMatch.text}`;
-                        btn.style.background = "#e8f5e9";
-                        btn.style.color = "#2e7d32";
-                        btn.style.borderColor = "#66bb6a";
-                        btn.style.cursor = "default";
-                    } else {
-                        estado = "acessar";
-                        btn.innerHTML = `${SVG_ENTRAR} Acessar lotação`;
-                        btn.title = `Alternar para: ${lotacaoMatch.text}`;
-                        btn.style.background = "#e3f2fd";
-                        btn.style.color = "#1565c0";
-                        btn.style.borderColor = "#64b5f6";
-                    }
-                } else {
-                    estado = "incluir";
-                    btn.innerHTML = `${SVG_PLUS} Incluir lotação`;
-                    btn.title = "Lotação não encontrada no seu perfil. Clique para incluir.";
-                    btn.style.background = "#fff3e0";
-                    btn.style.color = "#e65100";
-                    btn.style.borderColor = "#ffb74d";
-                }
-            } else if (estado === "acessar") {
-                registrarLotacao(lotacaoMatch.value, lotacaoMatch.text);
-                navegarPara(select, getPosicao(), lotacaoMatch.value);
-            } else if (estado === "incluir") {
-                alert("⚠️ Lotação do órgão julgador não encontrada no seu perfil.\n\nAcesse a tela de gerenciamento de usuários para incluí-la.");
+        if (lotacaoMatch) {
+            if (select.value === lotacaoMatch.value) {
+                btn.innerHTML = `${SVG_CHECK} Lotação atual`;
+                btn.title = lotacaoMatch.text;
+                btn.style.background = "#e8f5e9";
+                btn.style.color = "#2e7d32";
+                btn.style.borderColor = "#66bb6a";
+                btn.style.cursor = "default";
+            } else {
+                btn.innerHTML = `${SVG_ENTRAR} Acessar Lotação: ${lotacaoMatch.text}`;
+                btn.title = `Alternar para: ${lotacaoMatch.text}`;
+                btn.style.background = "#e3f2fd";
+                btn.style.color = "#1565c0";
+                btn.style.borderColor = "#64b5f6";
+                btn.onclick = () => {
+                    sessionStorage.setItem("EPROC_RETORNAR_PROCESSO", window.location.href);
+                    registrarLotacao(lotacaoMatch.value, lotacaoMatch.text);
+                    navegarPara(select, getPosicao(), lotacaoMatch.value);
+                };
             }
-        };
+        } else {
+            btn.innerHTML = `${SVG_PLUS} Incluir lotação`;
+            btn.title = "Lotação não encontrada no seu perfil";
+            btn.style.background = "#fff3e0";
+            btn.style.color = "#e65100";
+            btn.style.borderColor = "#ffb74d";
+            btn.onclick = () => {
+                alert("⚠️ Lotação do órgão julgador não encontrada no seu perfil.\n\nAcesse a tela de gerenciamento de usuários para incluí-la.");
+            };
+        }
 
         orgaoSpan.after(btn);
     }, 500);
