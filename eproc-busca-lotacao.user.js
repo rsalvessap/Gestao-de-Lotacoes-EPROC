@@ -655,6 +655,22 @@
     // ==============================
     // MÓDULO 4 — CONSULTAR LOTAÇÃO DO ÓRGÃO JULGADOR
     // ==============================
+    const TERMOS_JUDICIAIS = new Set([
+        "JUIZO", "TITULAR", "SUBSTITUTO", "UPJ", "VARA", "VARAS",
+        "CIVEL", "CRIMINAL", "CRIME", "FAMILIA", "FAZENDA", "PUBLICA",
+        "JUIZADO", "ESPECIAL", "CARTORIO", "OFICIO", "DISTRIBUICAO",
+        "REGIONAL", "CENTRAL", "CEJUSC", "CUMPRIMENTO", "SENTENCA",
+        "EXECUCAO", "FISCAL", "INFANCIA", "JUVENTUDE", "TRABALHO",
+        "CUMULATIVA", "UNICA", "TURMA", "RECURSAL", "VIOLENCIA",
+        "DOMESTICA", "EMPRESARIAL", "PRECATORIA", "DEPRECADA"
+    ]);
+
+    function extrairLocais(textoNorm) {
+        return textoNorm.split(/\s+/).filter(p =>
+            p.length > 3 && !TERMOS_JUDICIAIS.has(p) && !/^\d/.test(p) && !/^[IVXLC]+$/.test(p)
+        );
+    }
+
     function encontrarLotacaoDoOrgao(orgaoTexto, select) {
         const orgaoNorm = normalizar(orgaoTexto);
 
@@ -671,7 +687,7 @@
         }
         if (melhor) return melhor;
 
-        // 2ª tentativa: sobreposição de palavras (≥ 70% das palavras da lotação)
+        // 2ª tentativa: sobreposição de palavras (≥ 60% das palavras da lotação)
         const palavrasOrgao = orgaoNorm.split(/\s+/).filter(p => p.length > 2);
         let melhorScore = 0;
         for (const opt of select.options) {
@@ -683,6 +699,24 @@
             if (matches.length / palavrasLot.length >= 0.6 && matches.length > melhorScore) {
                 melhorScore = matches.length;
                 melhor = opt;
+            }
+        }
+        if (melhor) return melhor;
+
+        // 3ª tentativa: correspondência por localidade (cidade/comarca)
+        // Filtra termos judiciais genéricos e cruza apenas nomes de localidade
+        const locaisOrgao = extrairLocais(orgaoNorm);
+        if (locaisOrgao.length) {
+            melhorScore = 0;
+            for (const opt of select.options) {
+                if (!opt.value) continue;
+                const locaisLot = extrairLocais(normalizar(opt.text));
+                if (!locaisLot.length) continue;
+                const matches = locaisOrgao.filter(p => locaisLot.includes(p));
+                if (matches.length > 0 && matches.length > melhorScore) {
+                    melhorScore = matches.length;
+                    melhor = opt;
+                }
             }
         }
         return melhor;
