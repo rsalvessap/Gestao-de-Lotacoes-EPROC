@@ -697,7 +697,8 @@
         "REGIONAL", "CENTRAL", "CUMPRIMENTO", "SENTENCA",
         "EXECUCAO", "FISCAL", "INFANCIA", "JUVENTUDE", "TRABALHO",
         "CUMULATIVA", "UNICA", "TURMA", "RECURSAL", "VIOLENCIA",
-        "DOMESTICA", "EMPRESARIAL", "PRECATORIA", "DEPRECADA"
+        "DOMESTICA", "EMPRESARIAL", "PRECATORIA", "DEPRECADA",
+        "COMARCA", "FORO"
     ]);
 
     function extrairLocais(textoNorm) {
@@ -764,9 +765,10 @@
         // 3ª tentativa: localidade + número de vara dentro do range
         const locaisOrgao = extrairLocais(normOrgao(orgaoLimpo));
 
-        // Palavras discriminantes do órgão (não filtradas por TERMOS_JUDICIAIS)
+        // Palavras discriminantes do órgão (filtra termos genéricos judiciais)
         const palavrasOrgaoAlt = normOrgao(orgaoLimpo).split(/\s+/).filter(p =>
             p.length > 2 && !/^\d+$/.test(p) && !/^[ivxlc]+$/.test(p)
+            && !TERMOS_JUDICIAIS.has(p.toUpperCase())
         );
 
         if (locaisOrgao.length) {
@@ -786,6 +788,7 @@
                 // Bônus: palavras discriminantes em comum (ex: "cejusc", "civel")
                 const palavrasLotAlt = lotNormAlt.split(/\s+/).filter(p =>
                     p.length > 2 && !/^\d+$/.test(p) && !/^[ivxlc]+$/.test(p)
+                    && !TERMOS_JUDICIAIS.has(p.toUpperCase())
                 );
                 const palavrasComum = palavrasOrgaoAlt.filter(p => palavrasLotAlt.includes(p));
                 score += palavrasComum.length * 2;
