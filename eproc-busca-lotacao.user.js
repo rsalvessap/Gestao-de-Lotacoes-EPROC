@@ -793,8 +793,13 @@
         // Lookup direto no mapa CSV (prioridade máxima)
         const siglaEsperada = MAPA_ORGAO_SIGLA[orgaoNormAlt];
         if (siglaEsperada) {
+            // Busca por valor exato, ou valor com perfil (ex: "CVE1JEC" → "CVE1JEC/CHEFE DE CARTÓRIO"),
+            // ou sigla presente no texto da opção
             for (const opt of select.options) {
-                if (opt.value === siglaEsperada) return opt;
+                if (!opt.value) continue;
+                if (opt.value === siglaEsperada
+                    || opt.value.startsWith(siglaEsperada + "/")
+                    || opt.text.includes(siglaEsperada)) return opt;
             }
             // Mapa encontrou a sigla mas o usuário não tem essa lotação → "Incluir"
             return null;
