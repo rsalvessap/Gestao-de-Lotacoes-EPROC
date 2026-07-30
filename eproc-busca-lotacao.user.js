@@ -931,40 +931,53 @@
                 };
             }
         } else {
-            btn.innerHTML = `${SVG_PLUS} Incluir lotação`;
-            btn.title = "Lotação não encontrada no seu perfil — clique para atribuir";
-            btn.style.background = "#fff3e0";
-            btn.style.color = "#e65100";
-            btn.style.borderColor = "#ffb74d";
-            btn.onclick = async () => {
-                const nomeOrgao = limparNomeOrgao(orgaoTexto);
-                if (!nomeOrgao) { alert("Não consegui ler o nome do órgão julgador."); return; }
+            // Verificar se o perfil atual é administrador
+            const perfilAtual = select.options[select.selectedIndex]?.text || "";
+            const ehAdmin = /ADMINISTRADOR/i.test(perfilAtual);
 
-                btn.disabled = true;
-                btn.style.opacity = "0.6";
+            if (ehAdmin) {
+                btn.innerHTML = `${SVG_PLUS} Incluir lotação`;
+                btn.title = "Lotação não encontrada no seu perfil — clique para incluir (ADM)";
+                btn.style.background = "#fff3e0";
+                btn.style.color = "#e65100";
+                btn.style.borderColor = "#ffb74d";
+                btn.onclick = async () => {
+                    const nomeOrgao = limparNomeOrgao(orgaoTexto);
+                    if (!nomeOrgao) { alert("Não consegui ler o nome do órgão julgador."); return; }
 
-                let minhaSigla = localStorage.getItem(MINHA_SIGLA_CACHE_KEY);
-                if (!minhaSigla) {
-                    minhaSigla = await obterSiglaPropria();
-                    if (minhaSigla) localStorage.setItem(MINHA_SIGLA_CACHE_KEY, minhaSigla);
-                }
-                if (!minhaSigla) {
-                    alert("Não consegui identificar sua sigla de usuário logado.");
-                    btn.disabled = false; btn.style.opacity = "1";
-                    return;
-                }
+                    btn.disabled = true;
+                    btn.style.opacity = "0.6";
 
-                localStorage.setItem(ATRIBUIR_KEY, JSON.stringify({ orgao: nomeOrgao }));
+                    let minhaSigla = localStorage.getItem(MINHA_SIGLA_CACHE_KEY);
+                    if (!minhaSigla) {
+                        minhaSigla = await obterSiglaPropria();
+                        if (minhaSigla) localStorage.setItem(MINHA_SIGLA_CACHE_KEY, minhaSigla);
+                    }
+                    if (!minhaSigla) {
+                        alert("Não consegui identificar sua sigla de usuário logado.");
+                        btn.disabled = false; btn.style.opacity = "1";
+                        return;
+                    }
 
-                const linkCad = document.querySelector('a[href*="acao=usuario_listar"], a[href*="acao=usuario_cadastrar"]');
-                if (linkCad) {
-                    sessionStorage.setItem("EPROC_RETORNAR_PROCESSO", window.location.href);
-                    window.location.href = linkCad.href;
-                } else {
-                    alert("Lotação \"" + nomeOrgao + "\" memorizada.\n\nAbra o menu \"Cadastro de Usuários\" e o script concluirá a atribuição automaticamente.");
-                    btn.disabled = false; btn.style.opacity = "1";
-                }
-            };
+                    localStorage.setItem(ATRIBUIR_KEY, JSON.stringify({ orgao: nomeOrgao }));
+
+                    const linkCad = document.querySelector('a[href*="acao=usuario_listar"], a[href*="acao=usuario_cadastrar"]');
+                    if (linkCad) {
+                        sessionStorage.setItem("EPROC_RETORNAR_PROCESSO", window.location.href);
+                        window.location.href = linkCad.href;
+                    } else {
+                        alert("Lotação \"" + nomeOrgao + "\" memorizada.\n\nAbra o menu \"Cadastro de Usuários\" para concluir a inclusão.");
+                        btn.disabled = false; btn.style.opacity = "1";
+                    }
+                };
+            } else {
+                btn.innerHTML = `${SVG_LUPA} Lotação não encontrada`;
+                btn.title = "Lotação do órgão julgador não está no seu perfil. Para incluir, acesse como Administrador.";
+                btn.style.background = "#fff3e0";
+                btn.style.color = "#e65100";
+                btn.style.borderColor = "#ffb74d";
+                btn.style.cursor = "default";
+            }
         }
 
         orgaoSpan.after(btn);
