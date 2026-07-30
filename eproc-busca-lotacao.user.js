@@ -738,6 +738,8 @@
             for (const opt of select.options) {
                 if (opt.value === siglaEsperada) return opt;
             }
+            // Mapa encontrou a sigla mas o usuário não tem essa lotação → "Incluir"
+            return null;
         }
 
         // Extrair número de vara do órgão (usado nas estratégias de fallback)
