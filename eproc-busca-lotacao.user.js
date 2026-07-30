@@ -239,7 +239,7 @@
                 font-size: 11px;
                 font-weight: 700;
                 color: #fff;
-                background: #37474f;
+                background: #607d8b;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
                 position: sticky;
@@ -430,6 +430,12 @@
         return palavras.every(p => normalizarBusca(texto).includes(p));
     }
 
+    // Cores por base (grupo) para badges no dropdown
+    const CORES_GRUPO = { SP: "#1797B6", TJSP: "#0F9B6C", CR: "#3E4655", EF: "#9A1B3B" };
+    function corDoGrupo(grupo) {
+        return CORES_GRUPO[(grupo || "").toUpperCase()] || "#607d8b";
+    }
+
     // ==============================
     // HISTÓRICO (sessionStorage)
     // ==============================
@@ -556,6 +562,7 @@
                     grupoAtual = grupo;
                     const header = document.createElement("div");
                     header.className = "eproc-gl-dropdown-group";
+                    header.style.background = corDoGrupo(grupo);
                     header.textContent = grupo || "Geral";
                     dropdown.appendChild(header);
                 }
@@ -687,7 +694,7 @@
         "JUIZO", "TITULAR", "SUBSTITUTO", "UPJ", "VARA", "VARAS",
         "CIVEL", "CRIMINAL", "CRIME", "FAMILIA", "FAZENDA", "PUBLICA",
         "JUIZADO", "ESPECIAL", "CARTORIO", "OFICIO", "DISTRIBUICAO",
-        "REGIONAL", "CENTRAL", "CEJUSC", "CUMPRIMENTO", "SENTENCA",
+        "REGIONAL", "CENTRAL", "CUMPRIMENTO", "SENTENCA",
         "EXECUCAO", "FISCAL", "INFANCIA", "JUVENTUDE", "TRABALHO",
         "CUMULATIVA", "UNICA", "TURMA", "RECURSAL", "VIOLENCIA",
         "DOMESTICA", "EMPRESARIAL", "PRECATORIA", "DEPRECADA"
@@ -695,7 +702,7 @@
 
     function extrairLocais(textoNorm) {
         return textoNorm.split(/\s+/).filter(p =>
-            p.length > 3 && !TERMOS_JUDICIAIS.has(p) && !/^\d/.test(p) && !/^[IVXLC]+$/.test(p)
+            p.length > 3 && !TERMOS_JUDICIAIS.has(p.toUpperCase()) && !/^\d/.test(p) && !/^[ivxlcIVXLC]+$/.test(p)
         );
     }
 
@@ -734,17 +741,21 @@
         if (melhor) return melhor;
 
         // 3ª tentativa: localidade + número de vara dentro do range
-        const locaisOrgao = extrairLocais(orgaoNorm);
+        const locaisOrgao = extrairLocais(normOrgao(orgaoLimpo));
         const numOrgaoMatch = orgaoNormAlt.match(/(\d+)a?\s*vara\b/);
         const numVara = numOrgaoMatch ? parseInt(numOrgaoMatch[1]) : null;
+
+        // Palavras discriminantes do órgão (não filtradas por TERMOS_JUDICIAIS)
+        const palavrasOrgaoAlt = normOrgao(orgaoLimpo).split(/\s+/).filter(p =>
+            p.length > 2 && !/^\d+$/.test(p) && !/^[ivxlc]+$/.test(p)
+        );
 
         if (locaisOrgao.length) {
             melhorScore = 0;
             for (const opt of select.options) {
                 if (!opt.value) continue;
-                const lotNorm = normalizar(opt.text);
                 const lotNormAlt = normOrgao(opt.text);
-                const locaisLot = extrairLocais(lotNorm);
+                const locaisLot = extrairLocais(lotNormAlt);
                 if (!locaisLot.length) continue;
 
                 const matchesLocais = locaisOrgao.filter(p => locaisLot.includes(p));
@@ -752,7 +763,14 @@
 
                 let score = matchesLocais.length;
 
-                // Bônus: número da vara dentro do range da lotação
+                // Bônus: palavras discriminantes em comum (ex: "cejusc", "civel")
+                const palavrasLotAlt = lotNormAlt.split(/\s+/).filter(p =>
+                    p.length > 2 && !/^\d+$/.test(p) && !/^[ivxlc]+$/.test(p)
+                );
+                const palavrasComum = palavrasOrgaoAlt.filter(p => palavrasLotAlt.includes(p));
+                score += palavrasComum.length * 2;
+
+                // Número de vara
                 if (numVara !== null) {
                     const rangeMatch = lotNormAlt.match(/(\d+)a?\s*a\s*(\d+)a?\s*varas?\b/);
                     if (rangeMatch) {
@@ -760,9 +778,17 @@
                         const max = parseInt(rangeMatch[2]);
                         if (numVara >= min && numVara <= max) score += 10;
                     }
-                    // Também verifica vara única com mesmo número
+                    // Vara única com mesmo número → bônus
                     const singleMatch = lotNormAlt.match(/(\d+)a?\s*vara\b/);
-                    if (singleMatch && parseInt(singleMatch[1]) === numVara) score += 10;
+                    if (singleMatch && !rangeMatch) {
+                        const numLot = parseInt(singleMatch[1]);
+                        if (numLot === numVara) {
+                            score += 10;
+                        } else {
+                            // Número diferente → pular esta lotação
+                            continue;
+                        }
+                    }
                 }
 
                 if (score > melhorScore) {
@@ -771,7 +797,8 @@
                 }
             }
         }
-        return melhor;
+        // Exigir score mínimo para evitar falsos positivos
+        return (melhor && melhorScore >= 3) ? melhor : null;
     }
 
     let _btnOrgaoCriado = false;
