@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gestão de Lotações - EPROC
 // @namespace    eproc-gestao-lotacoes
-// @version      1.13
+// @version      1.14
 // @updateURL    https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js
 // @downloadURL  https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js
 // @include      *://eproc*.tjsp.jus.br/*
@@ -372,6 +372,9 @@
     </svg>`;
     const SVG_VOLTAR  = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
     const SVG_AVANCAR = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+    const SVG_LUPA    = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+    const SVG_CHECK   = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    const SVG_ENTRAR  = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>`;
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -647,6 +650,101 @@
         container.after(wrapperPos);
 
         atualizarBotoesNav();
+    }, 500);
+
+    // ==============================
+    // MÓDULO 4 — CONSULTAR LOTAÇÃO DO ÓRGÃO JULGADOR
+    // ==============================
+    function encontrarLotacaoDoOrgao(orgaoTexto, select) {
+        const orgaoNorm = normalizar(orgaoTexto);
+
+        // 1ª tentativa: texto normalizado da lotação contido no texto do órgão
+        let melhor = null, melhorLen = 0;
+        for (const opt of select.options) {
+            if (!opt.value) continue;
+            const lotNorm = normalizar(opt.text);
+            if (!lotNorm) continue;
+            if (orgaoNorm.includes(lotNorm) && lotNorm.length > melhorLen) {
+                melhorLen = lotNorm.length;
+                melhor = opt;
+            }
+        }
+        if (melhor) return melhor;
+
+        // 2ª tentativa: sobreposição de palavras (≥ 70% das palavras da lotação)
+        const palavrasOrgao = orgaoNorm.split(/\s+/).filter(p => p.length > 2);
+        let melhorScore = 0;
+        for (const opt of select.options) {
+            if (!opt.value) continue;
+            const lotNorm = normalizar(opt.text);
+            const palavrasLot = lotNorm.split(/\s+/).filter(p => p.length > 2);
+            if (palavrasLot.length < 2) continue;
+            const matches = palavrasLot.filter(p => palavrasOrgao.includes(p));
+            if (matches.length / palavrasLot.length >= 0.6 && matches.length > melhorScore) {
+                melhorScore = matches.length;
+                melhor = opt;
+            }
+        }
+        return melhor;
+    }
+
+    let _btnOrgaoCriado = false;
+    setInterval(() => {
+        const orgaoSpan = document.getElementById("txtOrgaoJulgador");
+        if (!orgaoSpan || _btnOrgaoCriado) return;
+        const select = document.querySelector("#selInfraUnidades");
+        if (!select) return;
+        _btnOrgaoCriado = true;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.id = "eproc-btn-consultar-lotacao";
+        btn.className = "eproc-gl-nav-btn";
+        btn.style.cssText = "margin-left:8px;padding:4px 10px;font-size:12px;vertical-align:middle;gap:4px;font-weight:600";
+        btn.innerHTML = `${SVG_LUPA} Consultar lotação`;
+        btn.title = "Verificar se você possui a lotação deste órgão julgador";
+
+        let estado = "consultar";
+        let lotacaoMatch = null;
+
+        btn.onclick = () => {
+            if (estado === "consultar") {
+                lotacaoMatch = encontrarLotacaoDoOrgao(orgaoSpan.textContent.trim(), select);
+
+                if (lotacaoMatch) {
+                    if (select.value === lotacaoMatch.value) {
+                        estado = "atual";
+                        btn.innerHTML = `${SVG_CHECK} Lotação atual`;
+                        btn.title = `Você já está nesta lotação: ${lotacaoMatch.text}`;
+                        btn.style.background = "#e8f5e9";
+                        btn.style.color = "#2e7d32";
+                        btn.style.borderColor = "#66bb6a";
+                        btn.style.cursor = "default";
+                    } else {
+                        estado = "acessar";
+                        btn.innerHTML = `${SVG_ENTRAR} Acessar lotação`;
+                        btn.title = `Alternar para: ${lotacaoMatch.text}`;
+                        btn.style.background = "#e3f2fd";
+                        btn.style.color = "#1565c0";
+                        btn.style.borderColor = "#64b5f6";
+                    }
+                } else {
+                    estado = "incluir";
+                    btn.innerHTML = `${SVG_PLUS} Incluir lotação`;
+                    btn.title = "Lotação não encontrada no seu perfil. Clique para incluir.";
+                    btn.style.background = "#fff3e0";
+                    btn.style.color = "#e65100";
+                    btn.style.borderColor = "#ffb74d";
+                }
+            } else if (estado === "acessar") {
+                registrarLotacao(lotacaoMatch.value, lotacaoMatch.text);
+                navegarPara(select, getPosicao(), lotacaoMatch.value);
+            } else if (estado === "incluir") {
+                alert("⚠️ Lotação do órgão julgador não encontrada no seu perfil.\n\nAcesse a tela de gerenciamento de usuários para incluí-la.");
+            }
+        };
+
+        orgaoSpan.after(btn);
     }, 500);
 
     // ==============================
