@@ -344,8 +344,10 @@
     injetarEstilos();
 
     // Retornar ao processo após troca de lotação
+    // (não retorna se há atribuição pendente — precisa ficar na tela de cadastro)
     const _retornarUrl = sessionStorage.getItem("EPROC_RETORNAR_PROCESSO");
-    if (_retornarUrl) {
+    const _atribuirPendente = localStorage.getItem("EPROC_ATRIBUIR_PENDENTE");
+    if (_retornarUrl && !_atribuirPendente) {
         sessionStorage.removeItem("EPROC_RETORNAR_PROCESSO");
         if (window.location.href !== _retornarUrl) {
             window.location.href = _retornarUrl;
