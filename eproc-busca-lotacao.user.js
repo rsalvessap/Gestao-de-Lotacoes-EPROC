@@ -388,6 +388,62 @@
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+    // ==============================
+    // IDENTIDADE DO USUÁRIO LOGADO
+    // ==============================
+    const MINHA_SIGLA_CACHE_KEY = "EPROC_MINHA_SIGLA_CACHE";
+    const ATRIBUIR_KEY = "EPROC_ATRIBUIR_PENDENTE";
+    const ATRIBUIR_FINALIZANDO_KEY = "EPROC_ATRIBUIR_FINALIZANDO";
+
+    function todosSpansComSigla() {
+        return [...document.querySelectorAll("span")].filter(s => /\([A-Z0-9]{4,20}\)/.test(s.textContent));
+    }
+
+    async function obterSiglaPropria() {
+        const icones = document.querySelectorAll("i.navbar-icons");
+        let icone = null;
+        for (const ic of icones) {
+            if ((ic.getAttribute("title") || "").indexOf("Perfil do usu") !== -1) { icone = ic; break; }
+        }
+        if (!icone) return null;
+        const antes = new Set(todosSpansComSigla());
+        icone.click();
+        await sleep(400);
+        const depois = todosSpansComSigla();
+        const novo = depois.find(s => !antes.has(s));
+        let sigla = null;
+        const candidato = novo || depois[0];
+        if (candidato) {
+            const m = candidato.textContent.match(/\(([A-Z0-9]{4,20})\)/);
+            if (m) sigla = m[1];
+        }
+        icone.click();
+        return sigla;
+    }
+
+    function mostrarOverlayAtribuir(texto) {
+        let overlay = document.getElementById("eproc-gl-overlay-atribuir");
+        if (!overlay) {
+            overlay = document.createElement("div");
+            overlay.id = "eproc-gl-overlay-atribuir";
+            overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999999;color:white;font-family:Arial,sans-serif";
+            overlay.innerHTML = `
+                <div style="width:40px;height:40px;border:4px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:eproc-spin 0.8s linear infinite"></div>
+                <div id="eproc-gl-overlay-atrib-texto" style="margin-top:16px;font-size:14px;font-weight:600"></div>
+            `;
+            const styleEl = document.createElement("style");
+            styleEl.textContent = `@keyframes eproc-spin { to { transform: rotate(360deg); } }`;
+            document.head.appendChild(styleEl);
+            document.documentElement.appendChild(overlay);
+        }
+        overlay.querySelector("#eproc-gl-overlay-atrib-texto").textContent = texto;
+        overlay.style.display = "flex";
+    }
+
+    function esconderOverlayAtribuir() {
+        document.getElementById("eproc-gl-overlay-atribuir")?.remove();
+    }
+
     function normalizar(txt) {
         return txt
             .toUpperCase()
@@ -869,12 +925,38 @@
             }
         } else {
             btn.innerHTML = `${SVG_PLUS} Incluir lotação`;
-            btn.title = "Lotação não encontrada no seu perfil";
+            btn.title = "Lotação não encontrada no seu perfil — clique para atribuir";
             btn.style.background = "#fff3e0";
             btn.style.color = "#e65100";
             btn.style.borderColor = "#ffb74d";
-            btn.onclick = () => {
-                alert("⚠️ Lotação do órgão julgador não encontrada no seu perfil.\n\nAcesse a tela de gerenciamento de usuários para incluí-la.");
+            btn.onclick = async () => {
+                const nomeOrgao = limparNomeOrgao(orgaoTexto);
+                if (!nomeOrgao) { alert("Não consegui ler o nome do órgão julgador."); return; }
+
+                btn.disabled = true;
+                btn.style.opacity = "0.6";
+
+                let minhaSigla = localStorage.getItem(MINHA_SIGLA_CACHE_KEY);
+                if (!minhaSigla) {
+                    minhaSigla = await obterSiglaPropria();
+                    if (minhaSigla) localStorage.setItem(MINHA_SIGLA_CACHE_KEY, minhaSigla);
+                }
+                if (!minhaSigla) {
+                    alert("Não consegui identificar sua sigla de usuário logado.");
+                    btn.disabled = false; btn.style.opacity = "1";
+                    return;
+                }
+
+                localStorage.setItem(ATRIBUIR_KEY, JSON.stringify({ orgao: nomeOrgao }));
+
+                const linkCad = document.querySelector('a[href*="acao=usuario_listar"], a[href*="acao=usuario_cadastrar"]');
+                if (linkCad) {
+                    sessionStorage.setItem("EPROC_RETORNAR_PROCESSO", window.location.href);
+                    window.location.href = linkCad.href;
+                } else {
+                    alert("Lotação \"" + nomeOrgao + "\" memorizada.\n\nAbra o menu \"Cadastro de Usuários\" e o script concluirá a atribuição automaticamente.");
+                    btn.disabled = false; btn.style.opacity = "1";
+                }
             };
         }
 
@@ -930,11 +1012,197 @@
         select.dispatchEvent(new Event("change", { bubbles: true }));
     }
 
+    function fecharSelect2() {
+        try {
+            const jq = window.jQuery || window.$;
+            if (jq) {
+                const $sel = jq("#selLotacoesUsuario");
+                if ($sel.length && $sel.data("select2")) $sel.select2("close");
+            }
+        } catch (e) { /* ignora */ }
+        document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        const aberto = document.querySelector(".select2-container--open");
+        if (aberto) {
+            aberto.classList.remove("select2-container--open");
+            document.querySelector(".select2-dropdown")?.parentElement?.remove();
+        }
+    }
+
+    function buscarProprioUsuario(sigla) {
+        const campo = document.querySelector("#txtSiglaOab");
+        if (!campo) throw "Campo de busca por sigla não encontrado nesta tela.";
+        campo.value = sigla;
+        if (typeof window.consultar === "function") {
+            window.consultar();
+        } else {
+            const btn = document.querySelector("#btnConsultar");
+            if (btn) btn.click();
+            else throw "Botão de consultar não encontrado.";
+        }
+    }
+
     function lotacoesJaIncluidas() {
         const linhas = document.querySelectorAll("#tabelaUsuarios > tbody > tr");
         if (!linhas.length) return [];
         return [...linhas].map(tr => normalizar(tr.innerText || "")).filter(Boolean);
     }
+
+    // ==============================
+    // MÓDULO 5 — ATRIBUIR LOTAÇÃO (na tela de cadastro de usuário)
+    // ==============================
+    function lerAtribuirPendente() {
+        try { return JSON.parse(localStorage.getItem(ATRIBUIR_KEY) || "null"); }
+        catch (e) { return null; }
+    }
+
+    // Verifica finalização de atribuição anterior
+    if (localStorage.getItem(ATRIBUIR_FINALIZANDO_KEY) === "1") {
+        localStorage.removeItem(ATRIBUIR_FINALIZANDO_KEY);
+        setTimeout(() => alert("Lotação atribuída ao seu usuário com sucesso."), 300);
+    }
+
+    async function abrirModalAtribuir(nomeOrgao) {
+        if (document.getElementById("eproc-gl-modal-atribuir")) return;
+        const tipos = pegarTiposDisponiveis();
+        if (!tipos.length) return;
+
+        esconderOverlayAtribuir();
+
+        const overlay = document.createElement("div");
+        overlay.className = "eproc-gl-overlay";
+        overlay.id = "eproc-gl-modal-atribuir";
+
+        const box = document.createElement("div");
+        box.className = "eproc-gl-modal";
+        box.style.cssText = "width:520px;max-height:82vh";
+        box.innerHTML = `
+            <div class="eproc-gl-modal-header">Atribuir lotação a você</div>
+            <div class="eproc-gl-modal-body">
+                <div style="font-size:12px;color:#666">Órgão do processo: <strong style="color:#1565c0">${nomeOrgao}</strong></div>
+                <div>
+                    <div style="font-size:12px;color:#666;margin-bottom:4px">Perfil (tipo de usuário)</div>
+                    <select id="atribPerfil" class="eproc-gl-select" style="width:100%">
+                        <option value="">-- Selecione o perfil --</option>
+                        ${tipos.map(t => `<option value="${t.value}">${t.text}</option>`).join("")}
+                    </select>
+                </div>
+                <div>
+                    <div style="font-size:12px;color:#666;margin-bottom:4px">Lotação</div>
+                    <input id="atribBusca" class="eproc-gl-input" style="width:100%" placeholder="Filtrar lotações..." value="${nomeOrgao.replace(/"/g, "&quot;")}">
+                    <div id="atribLista" class="eproc-gl-list" style="margin-top:6px;max-height:230px">
+                        <p style="color:#888;font-size:13px;padding:8px">Selecione um perfil para carregar as lotações.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="eproc-gl-modal-footer">
+                <button id="atribCancelar" class="eproc-gl-btn eproc-gl-btn-secondary">Cancelar</button>
+                <button id="atribConfirmar" class="eproc-gl-btn eproc-gl-btn-success">Atribuir</button>
+            </div>
+        `;
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        const selPerfil = box.querySelector("#atribPerfil");
+        const inpBusca  = box.querySelector("#atribBusca");
+        const listaDiv  = box.querySelector("#atribLista");
+        let lotacoesDoTipo = [];
+        let selecionada = null;
+
+        function renderCandidatos() {
+            const alvo = normOrgao(inpBusca.value);
+            const palavras = alvo.split(" ").filter(Boolean);
+            let matches = palavras.length
+                ? lotacoesDoTipo.filter(l => { const ln = normOrgao(l.text); return palavras.every(p => ln.includes(p)); })
+                : lotacoesDoTipo.slice();
+            matches.sort((a, b) => {
+                const la = normOrgao(a.text), lb = normOrgao(b.text);
+                const ea = la.includes(alvo) ? 0 : 1;
+                const eb = lb.includes(alvo) ? 0 : 1;
+                if (ea !== eb) return ea - eb;
+                return a.text.length - b.text.length;
+            });
+
+            listaDiv.innerHTML = "";
+            selecionada = null;
+            if (!matches.length) {
+                listaDiv.innerHTML = `<p style="color:#888;font-size:13px;padding:8px">Nenhuma lotação encontrada. Ajuste o filtro.</p>`;
+                return;
+            }
+            matches.forEach((l, i) => {
+                const label = document.createElement("label");
+                label.innerHTML = `
+                    <input type="radio" name="atribLot" value="${l.value}">
+                    <span>${l.text}${i === 0 && matches.length > 1 ? ' <span style="font-size:10px;font-weight:700;color:white;background:#2e7d32;padding:1px 6px;border-radius:3px">melhor</span>' : ''}</span>
+                `;
+                const radio = label.querySelector("input");
+                radio.addEventListener("change", () => { selecionada = { value: l.value, text: l.text }; });
+                listaDiv.appendChild(label);
+            });
+        }
+
+        async function carregarLotacoesDoPerfil(tipoValue) {
+            listaDiv.innerHTML = `<p style="color:#888;font-size:13px;padding:8px">Carregando lotações...</p>`;
+            selecionada = null;
+            definirTipo(tipoValue);
+            await sleep(1500);
+            abrirSelect2();
+            await sleep(800);
+            lotacoesDoTipo = pegarTodasLotacoes();
+            fecharSelect2();
+            renderCandidatos();
+        }
+
+        selPerfil.onchange = () => {
+            if (selPerfil.value) carregarLotacoesDoPerfil(selPerfil.value);
+            else { lotacoesDoTipo = []; renderCandidatos(); }
+        };
+        inpBusca.oninput = () => { if (lotacoesDoTipo.length) renderCandidatos(); };
+
+        box.querySelector("#atribCancelar").onclick = () => {
+            overlay.remove();
+            localStorage.removeItem(ATRIBUIR_KEY);
+        };
+        box.querySelector("#atribConfirmar").onclick = () => {
+            if (!selPerfil.value) { alert("Selecione o perfil."); return; }
+            if (!selecionada) { alert("Selecione a lotação na lista."); return; }
+            try {
+                adicionarNaLista(selecionada.value, selecionada.text);
+            } catch (e) { alert("Erro: " + e); return; }
+            fecharSelect2();
+            overlay.remove();
+            localStorage.removeItem(ATRIBUIR_KEY);
+            localStorage.setItem(ATRIBUIR_FINALIZANDO_KEY, "1");
+            mostrarOverlayAtribuir("Atribuindo lotação...");
+            const btnSalvar = document.querySelector("#btnIncUsu");
+            if (btnSalvar) btnSalvar.click();
+            else { esconderOverlayAtribuir(); alert("Botão de salvar não encontrado."); }
+        };
+    }
+
+    // Timer: detecta pendência de atribuição e abre o modal
+    let _atribuirEmAndamento = false;
+    let _buscandoProprioAtrib = false;
+    const _timerAtribuir = setInterval(() => {
+        const pend = lerAtribuirPendente();
+        if (!pend || !pend.orgao) return;
+        if (_atribuirEmAndamento) return;
+
+        const minhaSiglaCache = (localStorage.getItem(MINHA_SIGLA_CACHE_KEY) || "").toUpperCase();
+        if (!minhaSiglaCache) return;
+
+        const siglaAtual = (document.querySelector("#txtSiglaOab")?.value || "").toUpperCase().trim();
+        const noProprio = siglaAtual === minhaSiglaCache && document.querySelector("#tabelaUsuarios");
+
+        if (noProprio) {
+            _atribuirEmAndamento = true;
+            abrirModalAtribuir(pend.orgao);
+        } else if (document.querySelector("#txtSiglaOab") && !_buscandoProprioAtrib) {
+            _buscandoProprioAtrib = true;
+            mostrarOverlayAtribuir("Abrindo seu cadastro...");
+            try { buscarProprioUsuario(minhaSiglaCache); }
+            catch (e) { console.error("[Atribuir]", e); _buscandoProprioAtrib = false; }
+        }
+    }, 500);
 
     // ==============================
     // MODAL: selecionar tipo de perfil
