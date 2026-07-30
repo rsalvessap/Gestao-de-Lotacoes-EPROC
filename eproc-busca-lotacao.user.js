@@ -706,10 +706,29 @@
         );
     }
 
+    // Verifica se o número de vara da lotação é compatível com o do órgão
+    function varaCompativel(numVara, lotTexto) {
+        if (numVara === null) return true; // órgão sem número → aceita qualquer
+        const lotAlt = normOrgao(lotTexto);
+        const rangeMatch = lotAlt.match(/(\d+)a?\s*a\s*(\d+)a?\s*varas?\b/);
+        if (rangeMatch) {
+            const min = parseInt(rangeMatch[1]);
+            const max = parseInt(rangeMatch[2]);
+            return numVara >= min && numVara <= max;
+        }
+        const singleMatch = lotAlt.match(/(\d+)a?\s*vara\b/);
+        if (singleMatch) return parseInt(singleMatch[1]) === numVara;
+        return true; // lotação sem número de vara → aceita
+    }
+
     function encontrarLotacaoDoOrgao(orgaoTexto, select) {
         const orgaoLimpo = limparNomeOrgao(orgaoTexto);
         const orgaoNorm = normalizar(orgaoLimpo);
         const orgaoNormAlt = normOrgao(orgaoLimpo);
+
+        // Extrair número de vara do órgão (usado em todas as estratégias)
+        const numOrgaoMatch = orgaoNormAlt.match(/(\d+)a?\s*vara\b/);
+        const numVara = numOrgaoMatch ? parseInt(numOrgaoMatch[1]) : null;
 
         // 1ª tentativa: texto normalizado da lotação contido no texto do órgão
         let melhor = null, melhorLen = 0;
@@ -718,6 +737,7 @@
             const lotNorm = normalizar(opt.text);
             if (!lotNorm) continue;
             if (orgaoNorm.includes(lotNorm) && lotNorm.length > melhorLen) {
+                if (!varaCompativel(numVara, opt.text)) continue;
                 melhorLen = lotNorm.length;
                 melhor = opt;
             }
@@ -729,6 +749,7 @@
         let melhorScore = 0;
         for (const opt of select.options) {
             if (!opt.value) continue;
+            if (!varaCompativel(numVara, opt.text)) continue;
             const lotNorm = normalizar(opt.text);
             const palavrasLot = lotNorm.split(/\s+/).filter(p => p.length > 2);
             if (palavrasLot.length < 2) continue;
@@ -742,8 +763,6 @@
 
         // 3ª tentativa: localidade + número de vara dentro do range
         const locaisOrgao = extrairLocais(normOrgao(orgaoLimpo));
-        const numOrgaoMatch = orgaoNormAlt.match(/(\d+)a?\s*vara\b/);
-        const numVara = numOrgaoMatch ? parseInt(numOrgaoMatch[1]) : null;
 
         // Palavras discriminantes do órgão (não filtradas por TERMOS_JUDICIAIS)
         const palavrasOrgaoAlt = normOrgao(orgaoLimpo).split(/\s+/).filter(p =>
@@ -754,6 +773,7 @@
             melhorScore = 0;
             for (const opt of select.options) {
                 if (!opt.value) continue;
+                if (!varaCompativel(numVara, opt.text)) continue;
                 const lotNormAlt = normOrgao(opt.text);
                 const locaisLot = extrairLocais(lotNormAlt);
                 if (!locaisLot.length) continue;
@@ -770,24 +790,15 @@
                 const palavrasComum = palavrasOrgaoAlt.filter(p => palavrasLotAlt.includes(p));
                 score += palavrasComum.length * 2;
 
-                // Número de vara
+                // Bônus: vara dentro do range ou número exato
                 if (numVara !== null) {
                     const rangeMatch = lotNormAlt.match(/(\d+)a?\s*a\s*(\d+)a?\s*varas?\b/);
                     if (rangeMatch) {
-                        const min = parseInt(rangeMatch[1]);
-                        const max = parseInt(rangeMatch[2]);
-                        if (numVara >= min && numVara <= max) score += 10;
+                        score += 10;
                     }
-                    // Vara única com mesmo número → bônus
                     const singleMatch = lotNormAlt.match(/(\d+)a?\s*vara\b/);
-                    if (singleMatch && !rangeMatch) {
-                        const numLot = parseInt(singleMatch[1]);
-                        if (numLot === numVara) {
-                            score += 10;
-                        } else {
-                            // Número diferente → pular esta lotação
-                            continue;
-                        }
+                    if (singleMatch && !rangeMatch && parseInt(singleMatch[1]) === numVara) {
+                        score += 10;
                     }
                 }
 
