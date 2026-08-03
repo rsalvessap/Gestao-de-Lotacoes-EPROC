@@ -2,7 +2,43 @@
 
 Script para Tampermonkey que reúne, em um só lugar, diversas ferramentas para facilitar a administração de lotações de usuários no sistema eProc. Desenvolvido para tornar as tarefas de busca, inclusão e exclusão de lotações mais rápidas, intuitivas e eficientes.
 
-**Versão atual:** 1.6
+**Versão atual:** 1.15
+
+---
+
+## Novidades da v1.15
+
+### Consulta automática da lotação do Órgão Julgador
+
+Ao abrir a capa de um processo, o script identifica automaticamente o órgão julgador e verifica se você possui a lotação correspondente.
+
+Um botão é exibido ao lado do órgão, indicando a situação:
+
+* **Acessar Lotação: *\<nome da lotação\>*** – Caso você possua a lotação, basta clicar para alternar diretamente para ela. Após a troca, o processo é reaberto automaticamente.
+* **Lotação atual** – Indica que você já está utilizando a lotação correta.
+* **Ir para lotação ADM** – Caso você não possua a lotação, o script alterna para o perfil **Administrador**, permitindo iniciar o processo de inclusão.
+* **Incluir lotação** – Disponível no perfil **Administrador**, inicia automaticamente o fluxo de atribuição da lotação.
+
+### Inclusão automática de lotação (Administradores)
+
+Com apenas um clique em **Incluir lotação**, o script executa todo o procedimento automaticamente:
+
+1. Acessa a tela **Cadastro de Usuários**.
+2. Localiza automaticamente o seu cadastro.
+3. Abre a janela de edição com o perfil adequado já selecionado (**Chefe de Cartório** ou **Diretor da Central de Mandados**, conforme o órgão julgador).
+4. Localiza e sugere a lotação mais compatível.
+5. Após a confirmação da inclusão, retorna automaticamente ao processo que estava sendo consultado.
+
+### Copiar perfil de outro usuário
+
+Agora também é possível copiar uma ou mais lotações de outro usuário diretamente para o seu perfil.
+
+O procedimento é simples:
+
+1. Na tela de cadastro do usuário consultado, selecione as lotações desejadas utilizando as caixas de seleção exibidas ao lado de cada uma.
+2. Clique em **Copiar Perfil**.
+3. Confirme o perfil que será utilizado para cada lotação (você pode manter o mesmo perfil ou alterá-lo).
+4. O script localizará automaticamente o seu cadastro, incluirá as lotações selecionadas e efetuará o salvamento.
 
 ---
 
@@ -42,6 +78,22 @@ O Tampermonkey abrirá uma tela de confirmação → clique em **Instalar**.
   - Administrador do Sistema
   - Gerente de Usuários
   - Jus Postulandi
+
+### Consulta de lotação do órgão julgador *(capa do processo)*
+
+- Identifica automaticamente o órgão julgador e verifica se o usuário possui a lotação correspondente
+- Botão com estado: Acessar Lotação / Lotação atual / Ir para lotação ADM / Incluir lotação
+- Retorno automático ao processo após troca de lotação
+
+### Inclusão automática de lotação *(perfil Administrador)*
+
+- Fluxo completo com um clique: redireciona ao cadastro, busca o próprio usuário, pré-seleciona o perfil adequado, sugere a melhor lotação e retorna ao processo
+
+### Copiar perfil de outro usuário *(tela de usuário)*
+
+- Checkboxes ao lado de cada lotação do usuário consultado
+- Confirmação do perfil para cada lotação selecionada
+- Adição automática no próprio cadastro com salvamento
 
 ### Inclusão de lotações em lote *(tela de usuário)*
 
