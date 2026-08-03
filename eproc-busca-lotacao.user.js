@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gestão de Lotações - EPROC
 // @namespace    eproc-gestao-lotacoes
-// @version      1.14
+// @version      1.15
 // @updateURL    https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js
 // @downloadURL  https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js
 // @include      *://eproc*.tjsp.jus.br/*
@@ -337,6 +337,41 @@
                 color: #2e7d32;
             }
             .eproc-gl-done-list div:last-child { border-bottom: none; }
+
+            /* === Overlay de clonagem === */
+            .eproc-gl-overlay-clone {
+                position: fixed;
+                inset: 0;
+                background: rgba(21, 101, 192, 0.30);
+                backdrop-filter: blur(14px) saturate(120%);
+                -webkit-backdrop-filter: blur(14px) saturate(120%);
+                z-index: 2147483647;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 14px;
+                font-family: Arial, sans-serif;
+                color: #0d3868;
+            }
+            .eproc-gl-spinner {
+                width: 46px;
+                height: 46px;
+                border: 4px solid rgba(21,101,192,0.20);
+                border-top-color: #1565c0;
+                border-radius: 50%;
+                animation: eproc-gl-spin 0.8s linear infinite;
+                box-shadow: 0 2px 10px rgba(21,101,192,0.25);
+            }
+            @keyframes eproc-gl-spin {
+                to { transform: rotate(360deg); }
+            }
+            .eproc-gl-overlay-texto {
+                background: rgba(255,255,255,0.85);
+                padding: 6px 16px;
+                border-radius: 20px;
+                box-shadow: 0 2px 8px rgba(21,101,192,0.20);
+            }
         `;
         (document.head || document.documentElement).appendChild(style);
     }
@@ -344,10 +379,11 @@
     injetarEstilos();
 
     // Retornar ao processo após troca de lotação
-    // (não retorna se há atribuição pendente — precisa ficar na tela de cadastro)
+    // (não retorna se há atribuição ou clonagem pendente — precisa ficar na tela de cadastro)
     const _retornarUrl = sessionStorage.getItem("EPROC_RETORNAR_PROCESSO");
     const _atribuirPendente = localStorage.getItem("EPROC_ATRIBUIR_PENDENTE");
-    if (_retornarUrl && !_atribuirPendente) {
+    const _clonePendente = localStorage.getItem("EPROC_CLONE_PENDENTE");
+    if (_retornarUrl && !_atribuirPendente && !_clonePendente) {
         sessionStorage.removeItem("EPROC_RETORNAR_PROCESSO");
         if (window.location.href !== _retornarUrl) {
             window.location.href = _retornarUrl;
@@ -396,6 +432,11 @@
     const MINHA_SIGLA_CACHE_KEY = "EPROC_MINHA_SIGLA_CACHE";
     const ATRIBUIR_KEY = "EPROC_ATRIBUIR_PENDENTE";
     const ATRIBUIR_FINALIZANDO_KEY = "EPROC_ATRIBUIR_FINALIZANDO";
+    const CLONE_KEY = "EPROC_CLONE_PENDENTE";
+    const CLONE_SIGLA_KEY = "EPROC_CLONE_SIGLA";
+    const CLONE_FINALIZANDO_KEY = "EPROC_CLONE_FINALIZANDO";
+    let _processandoClonagem = false;
+    let _detectandoMinhaSigla = false;
 
     function todosSpansComSigla() {
         return [...document.querySelectorAll("span")].filter(s => /\([A-Z0-9]{4,20}\)/.test(s.textContent));
@@ -423,27 +464,61 @@
         return sigla;
     }
 
-    function mostrarOverlayAtribuir(texto) {
-        let overlay = document.getElementById("eproc-gl-overlay-atribuir");
+    function mostrarOverlayClonagem(texto) {
+        let overlay = document.getElementById("eproc-gl-overlay-clone");
         if (!overlay) {
             overlay = document.createElement("div");
-            overlay.id = "eproc-gl-overlay-atribuir";
-            overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999999;color:white;font-family:Arial,sans-serif";
+            overlay.id = "eproc-gl-overlay-clone";
+            overlay.className = "eproc-gl-overlay-clone";
             overlay.innerHTML = `
-                <div style="width:40px;height:40px;border:4px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:eproc-spin 0.8s linear infinite"></div>
-                <div id="eproc-gl-overlay-atrib-texto" style="margin-top:16px;font-size:14px;font-weight:600"></div>
+                <div class="eproc-gl-spinner"></div>
+                <div id="eproc-gl-overlay-texto" class="eproc-gl-overlay-texto" style="font-size:14px;font-weight:600"></div>
             `;
-            const styleEl = document.createElement("style");
-            styleEl.textContent = `@keyframes eproc-spin { to { transform: rotate(360deg); } }`;
-            document.head.appendChild(styleEl);
             document.documentElement.appendChild(overlay);
         }
-        overlay.querySelector("#eproc-gl-overlay-atrib-texto").textContent = texto;
+        overlay.querySelector("#eproc-gl-overlay-texto").textContent = texto;
         overlay.style.display = "flex";
     }
 
-    function esconderOverlayAtribuir() {
-        document.getElementById("eproc-gl-overlay-atribuir")?.remove();
+    function esconderOverlayClonagem() {
+        document.getElementById("eproc-gl-overlay-clone")?.remove();
+    }
+
+    function lerPendencias() {
+        return JSON.parse(localStorage.getItem(CLONE_KEY) || "[]");
+    }
+    function salvarPendencias(grupos) {
+        localStorage.setItem(CLONE_KEY, JSON.stringify(grupos));
+    }
+    function limparPendencias() {
+        localStorage.removeItem(CLONE_KEY);
+        localStorage.removeItem(CLONE_SIGLA_KEY);
+        localStorage.removeItem(CLONE_FINALIZANDO_KEY);
+    }
+    function adicionarNaPendencia(itens) {
+        const grupos = lerPendencias();
+        itens.forEach(({ lotacao, perfil }) => {
+            let grupo = grupos.find(g => g.perfil === perfil);
+            if (!grupo) {
+                grupo = { perfil, lotacoes: [] };
+                grupos.push(grupo);
+            }
+            if (!grupo.lotacoes.includes(lotacao)) grupo.lotacoes.push(lotacao);
+        });
+        salvarPendencias(grupos);
+    }
+
+    async function garantirMinhaSiglaCache() {
+        if (localStorage.getItem(MINHA_SIGLA_CACHE_KEY)) return;
+        if (_detectandoMinhaSigla || _processandoClonagem) return;
+        _detectandoMinhaSigla = true;
+        mostrarOverlayClonagem("Detectando sigla...");
+        const sigla = await obterSiglaPropria();
+        if (sigla) {
+            localStorage.setItem(MINHA_SIGLA_CACHE_KEY, sigla);
+        }
+        esconderOverlayClonagem();
+        _detectandoMinhaSigla = false;
     }
 
     function normalizar(txt) {
@@ -971,12 +1046,29 @@
                     }
                 };
             } else {
-                btn.innerHTML = `${SVG_LUPA} Lotação não encontrada`;
-                btn.title = "Lotação do órgão julgador não está no seu perfil. Para incluir, acesse como Administrador.";
-                btn.style.background = "#fff3e0";
-                btn.style.color = "#e65100";
-                btn.style.borderColor = "#ffb74d";
-                btn.style.cursor = "default";
+                // Procura a lotação de administrador no select
+                const optAdmin = Array.from(select.options).find(opt =>
+                    /ADMINISTRADOR/i.test(opt.text)
+                );
+                if (optAdmin) {
+                    btn.innerHTML = `${SVG_ADM} Ir para lotação ADM`;
+                    btn.title = "Lotação não encontrada — clique para alternar ao perfil Administrador e incluir";
+                    btn.style.background = "#fff3e0";
+                    btn.style.color = "#e65100";
+                    btn.style.borderColor = "#ffb74d";
+                    btn.onclick = () => {
+                        sessionStorage.setItem("EPROC_RETORNAR_PROCESSO", window.location.href);
+                        registrarLotacao(optAdmin.value, optAdmin.text);
+                        navegarPara(select, getPosicao(), optAdmin.value);
+                    };
+                } else {
+                    btn.innerHTML = `${SVG_LUPA} Lotação não encontrada`;
+                    btn.title = "Lotação do órgão julgador não está no seu perfil e não há perfil Administrador disponível.";
+                    btn.style.background = "#fff3e0";
+                    btn.style.color = "#e65100";
+                    btn.style.borderColor = "#ffb74d";
+                    btn.style.cursor = "default";
+                }
             }
         }
 
@@ -1075,8 +1167,14 @@
         catch (e) { return null; }
     }
 
-    // Verifica finalização de atribuição anterior
-    if (localStorage.getItem(ATRIBUIR_FINALIZANDO_KEY) === "1") {
+    // Verifica finalização de clonagem ou atribuição anterior
+    if (lerPendencias().length) {
+        mostrarOverlayClonagem("Copiando...");
+    } else if (localStorage.getItem(CLONE_FINALIZANDO_KEY) === "1") {
+        localStorage.removeItem(CLONE_FINALIZANDO_KEY);
+        localStorage.removeItem(CLONE_SIGLA_KEY);
+        setTimeout(() => alert("Lotações e perfis copiados com sucesso."), 300);
+    } else if (localStorage.getItem(ATRIBUIR_FINALIZANDO_KEY) === "1") {
         localStorage.removeItem(ATRIBUIR_FINALIZANDO_KEY);
         setTimeout(() => alert("Lotação atribuída ao seu usuário com sucesso."), 300);
     }
@@ -1086,7 +1184,7 @@
         const tipos = pegarTiposDisponiveis();
         if (!tipos.length) return;
 
-        esconderOverlayAtribuir();
+        esconderOverlayClonagem();
 
         const overlay = document.createElement("div");
         overlay.className = "eproc-gl-overlay";
@@ -1178,6 +1276,18 @@
         };
         inpBusca.oninput = () => { if (lotacoesDoTipo.length) renderCandidatos(); };
 
+        // Pré-selecionar perfil padrão conforme tipo do órgão
+        const orgaoNormLower = normOrgao(nomeOrgao);
+        const ehCentralMandados = /central\s*(de\s*)?mandados?/i.test(orgaoNormLower);
+        const termoPerfil = ehCentralMandados ? "DIRETOR CENTRAL DE MANDADOS" : "CHEFE DE CART";
+        const optPerfilPadrao = Array.from(selPerfil.options).find(opt =>
+            opt.text.toUpperCase().includes(termoPerfil.toUpperCase())
+        );
+        if (optPerfilPadrao) {
+            selPerfil.value = optPerfilPadrao.value;
+            carregarLotacoesDoPerfil(optPerfilPadrao.value);
+        }
+
         box.querySelector("#atribCancelar").onclick = () => {
             overlay.remove();
             localStorage.removeItem(ATRIBUIR_KEY);
@@ -1192,11 +1302,235 @@
             overlay.remove();
             localStorage.removeItem(ATRIBUIR_KEY);
             localStorage.setItem(ATRIBUIR_FINALIZANDO_KEY, "1");
-            mostrarOverlayAtribuir("Atribuindo lotação...");
+            mostrarOverlayClonagem("Atribuindo lotação...");
             const btnSalvar = document.querySelector("#btnIncUsu");
             if (btnSalvar) btnSalvar.click();
-            else { esconderOverlayAtribuir(); alert("Botão de salvar não encontrado."); }
+            else { esconderOverlayClonagem(); alert("Botão de salvar não encontrado."); }
         };
+    }
+
+    // ==============================
+    // MÓDULO 6 — COPIAR PERFIL/LOTAÇÃO DE OUTRO USUÁRIO
+    // ==============================
+    function injetarCheckboxesClonagem() {
+        const tabela = document.querySelector("#tabelaUsuarios");
+        if (!tabela) return;
+        const linhas = tabela.querySelectorAll("tbody > tr");
+        if (!linhas.length) return;
+
+        const thead = tabela.querySelector("thead tr");
+        if (thead && !thead.querySelector(".eproc-gl-th-clone")) {
+            const th = document.createElement("th");
+            th.className = "eproc-gl-th-clone";
+            th.textContent = "Copiar";
+            thead.insertBefore(th, thead.firstChild);
+        }
+
+        linhas.forEach(tr => {
+            if (tr.querySelector(".eproc-gl-td-clone")) return;
+            const tds = tr.querySelectorAll("td");
+            const lotacao = tds[2]?.innerText?.trim();
+            const perfil  = tds[3]?.innerText?.trim();
+
+            const td = document.createElement("td");
+            td.className = "eproc-gl-td-clone";
+            td.style.textAlign = "center";
+
+            if (lotacao && perfil) {
+                const chk = document.createElement("input");
+                chk.type = "checkbox";
+                chk.className = "eproc-gl-chk-clone";
+                chk.dataset.lotacao = lotacao;
+                chk.dataset.perfil = perfil;
+                td.appendChild(chk);
+            }
+
+            tr.insertBefore(td, tr.firstChild);
+        });
+    }
+
+    function criarBotaoClonar() {
+        if (document.getElementById("eproc-gl-btn-clonar")) return;
+        const tabela = document.querySelector("#tabelaUsuarios");
+        if (!tabela) return;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.id = "eproc-gl-btn-clonar";
+        btn.className = "eproc-button-primary";
+        btn.style.cssText = "margin:8px 0;display:inline-flex;align-items:center;gap:7px";
+        btn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                <path d="M9 12a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm6.5-1a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6ZM9 13.5c-3 0-6 1.4-6 3.7V19h12v-1.8c0-2.3-3-3.7-6-3.7Zm7.2.6c1.9.5 3.3 1.6 3.3 3.1V19h3v-1.6c0-1.9-2.4-3-6.3-3.3Z"/>
+            </svg>
+            Copiar Perfil
+        `;
+        btn.onclick = () => {
+            const marcados = [...document.querySelectorAll(".eproc-gl-chk-clone:checked")]
+                .map(c => ({ lotacao: c.dataset.lotacao, perfilOriginal: c.dataset.perfil }));
+            if (!marcados.length) {
+                alert("Selecione os perfis/lotações que deseja copiar (marque os checkboxes na tabela acima).");
+                return;
+            }
+            abrirModalConfirmarPerfil(marcados);
+        };
+        tabela.parentNode.insertBefore(btn, tabela);
+    }
+
+    function abrirModalConfirmarPerfil(itens) {
+        const tipos = pegarTiposDisponiveis();
+        const overlay = document.createElement("div");
+        overlay.className = "eproc-gl-overlay";
+
+        const box = document.createElement("div");
+        box.className = "eproc-gl-modal";
+        box.style.cssText = "width:560px;max-height:80vh";
+        box.innerHTML = `
+            <div class="eproc-gl-modal-header">Confirmar perfil de cada lotação</div>
+            <div class="eproc-gl-modal-body">
+                <div id="eproc-gl-clone-itens" style="display:flex;flex-direction:column;gap:10px;overflow-y:auto"></div>
+            </div>
+            <div class="eproc-gl-modal-footer">
+                <button id="cancelarClone" class="eproc-gl-btn eproc-gl-btn-secondary">Cancelar</button>
+                <button id="confirmarClone" class="eproc-gl-btn eproc-gl-btn-success">Copiar</button>
+            </div>
+        `;
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        const cont = box.querySelector("#eproc-gl-clone-itens");
+        itens.forEach((item, i) => {
+            const div = document.createElement("div");
+            div.style.cssText = "border:1.5px solid #e8e8e8;border-radius:6px;padding:8px 10px";
+            div.innerHTML = `
+                <div style="font-size:13px;color:#222;margin-bottom:6px"><strong>${item.lotacao}</strong></div>
+                <label style="font-size:12px;color:#555;display:flex;align-items:center;gap:6px;cursor:pointer">
+                    <input type="checkbox" class="eproc-gl-mesmo-perfil" checked data-idx="${i}">
+                    Usar o mesmo perfil (${item.perfilOriginal})
+                </label>
+                <select class="eproc-gl-select-perfil-alt eproc-gl-select" data-idx="${i}" style="width:100%;margin-top:6px;display:none">
+                    ${tipos.map(t => `<option value="${t.text}" ${t.text === item.perfilOriginal ? "selected" : ""}>${t.text}</option>`).join("")}
+                </select>
+            `;
+            cont.appendChild(div);
+        });
+
+        cont.querySelectorAll(".eproc-gl-mesmo-perfil").forEach(chk => {
+            chk.addEventListener("change", (e) => {
+                const idx = e.target.dataset.idx;
+                const sel = cont.querySelector(`.eproc-gl-select-perfil-alt[data-idx="${idx}"]`);
+                sel.style.display = e.target.checked ? "none" : "block";
+            });
+        });
+
+        box.querySelector("#cancelarClone").onclick = () => overlay.remove();
+        box.querySelector("#confirmarClone").onclick = () => {
+            const finais = itens.map((item, i) => {
+                const mesmoChk = cont.querySelector(`.eproc-gl-mesmo-perfil[data-idx="${i}"]`);
+                const sel = cont.querySelector(`.eproc-gl-select-perfil-alt[data-idx="${i}"]`);
+                const perfilFinal = mesmoChk.checked ? item.perfilOriginal : sel.value;
+                return { lotacao: item.lotacao, perfil: perfilFinal };
+            });
+            overlay.remove();
+            iniciarClonagemComItens(finais);
+        };
+    }
+
+    async function iniciarClonagemComItens(itens) {
+        adicionarNaPendencia(itens);
+        mostrarOverlayClonagem("Copiando...");
+        const minhaSigla = await obterSiglaPropria();
+        if (!minhaSigla) {
+            esconderOverlayClonagem();
+            alert("Não consegui identificar sua sigla de usuário logado. A cópia foi cancelada.");
+            limparPendencias();
+            return;
+        }
+        localStorage.setItem(CLONE_SIGLA_KEY, minhaSigla);
+        setTimeout(() => {
+            try {
+                buscarProprioUsuario(minhaSigla);
+            } catch (e) {
+                esconderOverlayClonagem();
+                alert(e);
+            }
+        }, 300);
+    }
+
+    async function continuarClonagem() {
+        const grupos = lerPendencias();
+        if (!grupos.length) { esconderOverlayClonagem(); return; }
+
+        const grupo = grupos[0];
+        mostrarOverlayClonagem("Copiando...");
+
+        const tipos = pegarTiposDisponiveis();
+        const tipoAlvo = tipos.find(t =>
+            normalizarBusca(t.text).includes(normalizarBusca(grupo.perfil)) ||
+            normalizarBusca(grupo.perfil).includes(normalizarBusca(t.text))
+        );
+        if (!tipoAlvo) {
+            esconderOverlayClonagem();
+            alert(`Não encontrei o perfil "${grupo.perfil}" nesta tela.\nA cópia foi interrompida; os itens restantes continuam pendentes.`);
+            _processandoClonagem = false;
+            return;
+        }
+
+        definirTipo(tipoAlvo.value);
+        await sleep(1500);
+
+        abrirSelect2();
+        await sleep(800);
+        const lotacoesDisponiveis = pegarTodasLotacoes();
+        fecharSelect2();
+
+        let incluidas = 0;
+        const jaTenho = lotacoesJaIncluidas();
+        for (const textoLotacao of grupo.lotacoes) {
+            const alvoNorm = normalizar(textoLotacao);
+            if (jaTenho.some(j => j.includes(alvoNorm) || alvoNorm.includes(j))) {
+                continue;
+            }
+            const opt = lotacoesDisponiveis.find(l => normalizar(l.text) === alvoNorm)
+                     || lotacoesDisponiveis.find(l => normalizar(l.text).includes(alvoNorm) || alvoNorm.includes(normalizar(l.text)));
+            if (!opt) {
+                console.warn("[Clonagem] Lotação não encontrada para este tipo:", textoLotacao);
+                continue;
+            }
+            adicionarNaLista(opt.value, opt.text);
+            incluidas++;
+            await sleep(200);
+        }
+
+        fecharSelect2();
+
+        if (incluidas === 0) {
+            const restantes = grupos.slice(1);
+            salvarPendencias(restantes);
+            if (restantes.length) {
+                await continuarClonagem();
+            } else {
+                esconderOverlayClonagem();
+                alert("Lotações e perfis copiados com sucesso.");
+                localStorage.removeItem(CLONE_SIGLA_KEY);
+                _processandoClonagem = false;
+            }
+            return;
+        }
+
+        const restantesAposSalvar = grupos.slice(1);
+        salvarPendencias(restantesAposSalvar);
+        if (!restantesAposSalvar.length) {
+            localStorage.setItem(CLONE_FINALIZANDO_KEY, "1");
+        }
+
+        const btnSalvar = document.querySelector("#btnIncUsu");
+        if (btnSalvar) {
+            btnSalvar.click();
+        } else {
+            esconderOverlayClonagem();
+            alert("Botão de salvar não encontrado.");
+            _processandoClonagem = false;
+        }
     }
 
     // Timer: detecta pendência de atribuição e abre o modal
@@ -1205,7 +1539,7 @@
     const _timerAtribuir = setInterval(() => {
         const pend = lerAtribuirPendente();
         if (!pend || !pend.orgao) return;
-        if (_atribuirEmAndamento) return;
+        if (_atribuirEmAndamento || _processandoClonagem) return;
 
         const minhaSiglaCache = (localStorage.getItem(MINHA_SIGLA_CACHE_KEY) || "").toUpperCase();
         if (!minhaSiglaCache) return;
@@ -1218,9 +1552,45 @@
             abrirModalAtribuir(pend.orgao);
         } else if (document.querySelector("#txtSiglaOab") && !_buscandoProprioAtrib) {
             _buscandoProprioAtrib = true;
-            mostrarOverlayAtribuir("Abrindo seu cadastro...");
+            mostrarOverlayClonagem("Abrindo seu cadastro...");
             try { buscarProprioUsuario(minhaSiglaCache); }
             catch (e) { console.error("[Atribuir]", e); _buscandoProprioAtrib = false; }
+        }
+    }, 500);
+
+    // Timer: detecta tabela de outro usuário e injeta checkboxes + botão copiar
+    const _timerClonagem = setInterval(() => {
+        const tabela = document.querySelector("#tabelaUsuarios");
+        if (!tabela) return;
+
+        if (!localStorage.getItem(MINHA_SIGLA_CACHE_KEY)) {
+            garantirMinhaSiglaCache();
+        }
+
+        const siglaAtual = (document.querySelector("#txtSiglaOab")?.value || "").toUpperCase().trim();
+        const minhaSiglaCache = (localStorage.getItem(MINHA_SIGLA_CACHE_KEY) || "").toUpperCase();
+        const eMeuProprioUsuario = minhaSiglaCache && siglaAtual === minhaSiglaCache;
+
+        if (eMeuProprioUsuario) {
+            document.getElementById("eproc-gl-btn-clonar")?.remove();
+            document.querySelector(".eproc-gl-th-clone")?.remove();
+            document.querySelectorAll("#tabelaUsuarios .eproc-gl-td-clone").forEach(td => td.remove());
+        } else {
+            injetarCheckboxesClonagem();
+            criarBotaoClonar();
+        }
+
+        if (!_processandoClonagem) {
+            const grupos = lerPendencias();
+            if (grupos.length) {
+                const minhaSigla = localStorage.getItem(CLONE_SIGLA_KEY);
+                if (minhaSigla && siglaAtual === minhaSigla.toUpperCase()) {
+                    _processandoClonagem = true;
+                    continuarClonagem();
+                } else {
+                    esconderOverlayClonagem();
+                }
+            }
         }
     }, 500);
 
