@@ -1117,11 +1117,18 @@
     function adicionarNaLista(value, text) {
         const select = document.querySelector("#selLotacoesUsuario");
         if (!select) throw "Campo real de lotações não encontrado";
-        if ([...select.options].some(o => o.value === value)) return;
+        const existente = [...select.options].find(o => o.value === value);
+        if (existente) {
+            if (existente.selected) return false;
+            existente.selected = true;
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+            return true;
+        }
         const opt = document.createElement("option");
         opt.value = value; opt.text = text; opt.selected = true;
         select.appendChild(opt);
         select.dispatchEvent(new Event("change", { bubbles: true }));
+        return true;
     }
 
     function fecharSelect2() {
@@ -1496,8 +1503,8 @@
                 console.warn("[Clonagem] Lotação não encontrada para este tipo:", textoLotacao);
                 continue;
             }
-            adicionarNaLista(opt.value, opt.text);
-            incluidas++;
+            const adicionou = adicionarNaLista(opt.value, opt.text);
+            if (adicionou) incluidas++;
             await sleep(200);
         }
 
