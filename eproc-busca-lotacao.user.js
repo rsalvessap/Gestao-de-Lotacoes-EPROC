@@ -382,7 +382,8 @@
     // (não retorna se há atribuição ou clonagem pendente — precisa ficar na tela de cadastro)
     const _retornarUrl = sessionStorage.getItem("EPROC_RETORNAR_PROCESSO");
     const _atribuirPendente = localStorage.getItem("EPROC_ATRIBUIR_PENDENTE");
-    const _clonePendente = localStorage.getItem("EPROC_CLONE_PENDENTE");
+    const _clonePendenteRaw = localStorage.getItem("EPROC_CLONE_PENDENTE");
+    const _clonePendente = _clonePendenteRaw && _clonePendenteRaw !== "[]";
     if (_retornarUrl && !_atribuirPendente && !_clonePendente) {
         sessionStorage.removeItem("EPROC_RETORNAR_PROCESSO");
         if (window.location.href !== _retornarUrl) {
@@ -488,7 +489,8 @@
         return JSON.parse(localStorage.getItem(CLONE_KEY) || "[]");
     }
     function salvarPendencias(grupos) {
-        localStorage.setItem(CLONE_KEY, JSON.stringify(grupos));
+        if (grupos.length) localStorage.setItem(CLONE_KEY, JSON.stringify(grupos));
+        else localStorage.removeItem(CLONE_KEY);
     }
     function limparPendencias() {
         localStorage.removeItem(CLONE_KEY);
@@ -1180,6 +1182,7 @@
     } else if (localStorage.getItem(CLONE_FINALIZANDO_KEY) === "1") {
         localStorage.removeItem(CLONE_FINALIZANDO_KEY);
         localStorage.removeItem(CLONE_SIGLA_KEY);
+        localStorage.removeItem(CLONE_KEY);
         setTimeout(() => alert("Lotações e perfis copiados com sucesso."), 300);
     } else if (localStorage.getItem(ATRIBUIR_FINALIZANDO_KEY) === "1") {
         localStorage.removeItem(ATRIBUIR_FINALIZANDO_KEY);
