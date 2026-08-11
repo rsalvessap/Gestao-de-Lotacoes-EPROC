@@ -1124,7 +1124,8 @@
                         return;
                     }
 
-                    localStorage.setItem(ATRIBUIR_KEY, JSON.stringify({ orgao: nomeOrgao }));
+                    const siglaLotacao = MAPA_ORGAO_SIGLA[normOrgao(nomeOrgao)] || null;
+                    localStorage.setItem(ATRIBUIR_KEY, JSON.stringify({ orgao: nomeOrgao, sigla: siglaLotacao }));
 
                     const linkCad = document.querySelector('a[href*="acao=usuario_listar"], a[href*="acao=usuario_cadastrar"]');
                     if (linkCad) {
@@ -1289,7 +1290,7 @@
         setTimeout(() => alert("Lotação atribuída ao seu usuário com sucesso."), 300);
     }
 
-    async function abrirModalAtribuir(nomeOrgao) {
+    async function abrirModalAtribuir(nomeOrgao, siglaLotacao) {
         if (document.getElementById("eproc-gl-modal-atribuir")) return;
         const tipos = pegarTiposDisponiveis();
         if (!tipos.length) return;
@@ -1336,13 +1337,34 @@
         let lotacoesDoTipo = [];
         let selecionada = null;
 
+        function encontrarPorSigla(sigla) {
+            if (!sigla) return null;
+            return lotacoesDoTipo.find(l =>
+                l.value === sigla
+                || l.value.startsWith(sigla + "/")
+                || l.text.includes(sigla)
+            ) || null;
+        }
+
         function renderCandidatos() {
             const alvo = normOrgao(inpBusca.value);
             const palavras = alvo.split(" ").filter(Boolean);
             let matches = palavras.length
                 ? lotacoesDoTipo.filter(l => { const ln = normOrgao(l.text); return palavras.every(p => ln.includes(p)); })
                 : lotacoesDoTipo.slice();
+
+            // Garantir que a lotação correspondente à sigla do mapa apareça mesmo que o filtro de texto não a encontre
+            const matchSigla = encontrarPorSigla(siglaLotacao);
+            if (matchSigla && !matches.some(m => m.value === matchSigla.value)) {
+                matches.unshift(matchSigla);
+            }
+
             matches.sort((a, b) => {
+                // Lotação da sigla sempre no topo
+                if (matchSigla) {
+                    if (a.value === matchSigla.value && b.value !== matchSigla.value) return -1;
+                    if (b.value === matchSigla.value && a.value !== matchSigla.value) return 1;
+                }
                 const la = normOrgao(a.text), lb = normOrgao(b.text);
                 const ea = la.includes(alvo) ? 0 : 1;
                 const eb = lb.includes(alvo) ? 0 : 1;
@@ -1357,13 +1379,19 @@
                 return;
             }
             matches.forEach((l, i) => {
+                const ehSigla = matchSigla && l.value === matchSigla.value;
                 const label = document.createElement("label");
                 label.innerHTML = `
                     <input type="radio" name="atribLot" value="${l.value}">
-                    <span>${l.text}${i === 0 && matches.length > 1 ? ' <span style="font-size:10px;font-weight:700;color:white;background:#2e7d32;padding:1px 6px;border-radius:3px">melhor</span>' : ''}</span>
+                    <span>${l.text}${ehSigla ? ' <span style="font-size:10px;font-weight:700;color:white;background:#1565c0;padding:1px 6px;border-radius:3px">mapa</span>' : (i === 0 && matches.length > 1 && !matchSigla ? ' <span style="font-size:10px;font-weight:700;color:white;background:#2e7d32;padding:1px 6px;border-radius:3px">melhor</span>' : '')}</span>
                 `;
                 const radio = label.querySelector("input");
                 radio.addEventListener("change", () => { selecionada = { value: l.value, text: l.text }; });
+                // Pré-selecionar a lotação identificada pela sigla
+                if (ehSigla) {
+                    radio.checked = true;
+                    selecionada = { value: l.value, text: l.text };
+                }
                 listaDiv.appendChild(label);
             });
         }
@@ -1674,7 +1702,7 @@
 
         if (noProprio) {
             _atribuirEmAndamento = true;
-            abrirModalAtribuir(pend.orgao);
+            abrirModalAtribuir(pend.orgao, pend.sigla || null);
         } else if (document.querySelector("#txtSiglaOab") && !_buscandoProprioAtrib) {
             _buscandoProprioAtrib = true;
             mostrarOverlayClonagem("Abrindo seu cadastro...");
