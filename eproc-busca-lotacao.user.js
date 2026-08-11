@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gestão de Lotações - EPROC
 // @namespace    eproc-gestao-lotacoes
-// @version      1.15
+// @version      1.16
 // @updateURL    https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js
 // @downloadURL  https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js
 // @include      *://eproc*.tjsp.jus.br/*
@@ -436,6 +436,7 @@
     const CLONE_KEY = "EPROC_CLONE_PENDENTE";
     const CLONE_SIGLA_KEY = "EPROC_CLONE_SIGLA";
     const CLONE_FINALIZANDO_KEY = "EPROC_CLONE_FINALIZANDO";
+    const CLONE_RESULTADO_KEY = "EPROC_CLONE_RESULTADO";
     let _processandoClonagem = false;
     let _detectandoMinhaSigla = false;
 
@@ -474,8 +475,21 @@
             overlay.innerHTML = `
                 <div class="eproc-gl-spinner"></div>
                 <div id="eproc-gl-overlay-texto" class="eproc-gl-overlay-texto" style="font-size:14px;font-weight:600"></div>
+                <button id="eproc-gl-overlay-cancelar" style="
+                    margin-top:18px;padding:6px 22px;border:none;border-radius:5px;
+                    background:#c62828;color:#fff;font-size:13px;font-weight:600;
+                    cursor:pointer;opacity:0;transition:opacity .3s;pointer-events:none;
+                ">Cancelar</button>
             `;
             document.documentElement.appendChild(overlay);
+            const btnCancel = overlay.querySelector("#eproc-gl-overlay-cancelar");
+            setTimeout(() => { btnCancel.style.opacity = "1"; btnCancel.style.pointerEvents = "auto"; }, 3000);
+            btnCancel.onclick = () => {
+                limparPendencias();
+                limparResultados();
+                _processandoClonagem = false;
+                esconderOverlayClonagem();
+            };
         }
         overlay.querySelector("#eproc-gl-overlay-texto").textContent = texto;
         overlay.style.display = "flex";
@@ -497,6 +511,80 @@
         localStorage.removeItem(CLONE_SIGLA_KEY);
         localStorage.removeItem(CLONE_FINALIZANDO_KEY);
     }
+    function lerResultados() {
+        return JSON.parse(localStorage.getItem(CLONE_RESULTADO_KEY) || "[]");
+    }
+    function registrarResultado(lotacao, perfil, status) {
+        const resultados = lerResultados();
+        resultados.push({ lotacao, perfil, status });
+        localStorage.setItem(CLONE_RESULTADO_KEY, JSON.stringify(resultados));
+    }
+    function limparResultados() {
+        localStorage.removeItem(CLONE_RESULTADO_KEY);
+    }
+
+    function mostrarModalResultadoClonagem() {
+        const resultados = lerResultados();
+        limparResultados();
+        if (!resultados.length) return;
+
+        const STATUS_LABEL = {
+            incluida:        { texto: "Incluída",         cor: "#2e7d32", bg: "#e8f5e9" },
+            ja_possui:       { texto: "Já possui",        cor: "#e65100", bg: "#fff3e0" },
+            nao_encontrada:  { texto: "Não encontrada",   cor: "#c62828", bg: "#ffebee" },
+            perfil_invalido: { texto: "Perfil não encontrado", cor: "#c62828", bg: "#ffebee" },
+        };
+
+        const incluidas = resultados.filter(r => r.status === "incluida").length;
+        const total = resultados.length;
+
+        const overlay = document.createElement("div");
+        overlay.className = "eproc-gl-overlay";
+
+        const box = document.createElement("div");
+        box.className = "eproc-gl-modal";
+        box.style.cssText = "width:600px;max-height:82vh";
+
+        const titulo = incluidas === total
+            ? `Todas as ${total} lotações foram copiadas`
+            : `${incluidas} de ${total} lotações copiadas`;
+
+        let linhasHtml = "";
+        resultados.forEach(r => {
+            const s = STATUS_LABEL[r.status] || STATUS_LABEL.nao_encontrada;
+            linhasHtml += `
+                <tr>
+                    <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:12px">${r.lotacao}</td>
+                    <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:12px;white-space:nowrap">${r.perfil}</td>
+                    <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center">
+                        <span style="font-size:11px;font-weight:600;color:${s.cor};background:${s.bg};padding:2px 8px;border-radius:3px;white-space:nowrap">${s.texto}</span>
+                    </td>
+                </tr>`;
+        });
+
+        box.innerHTML = `
+            <div class="eproc-gl-modal-header">${titulo}</div>
+            <div class="eproc-gl-modal-body" style="padding:0">
+                <table style="width:100%;border-collapse:collapse">
+                    <thead>
+                        <tr style="background:#f5f5f5">
+                            <th style="padding:8px;text-align:left;font-size:12px;border-bottom:2px solid #ddd">Lotação</th>
+                            <th style="padding:8px;text-align:left;font-size:12px;border-bottom:2px solid #ddd">Perfil</th>
+                            <th style="padding:8px;text-align:center;font-size:12px;border-bottom:2px solid #ddd">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>${linhasHtml}</tbody>
+                </table>
+            </div>
+            <div class="eproc-gl-modal-footer">
+                <button id="fecharResultadoClone" class="eproc-gl-btn eproc-gl-btn-success">Fechar</button>
+            </div>
+        `;
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+        box.querySelector("#fecharResultadoClone").onclick = () => overlay.remove();
+    }
+
     function adicionarNaPendencia(itens) {
         const grupos = lerPendencias();
         itens.forEach(({ lotacao, perfil }) => {
@@ -1093,9 +1181,21 @@
             .map(opt => ({ value: opt.value, text: opt.text.trim() }));
     }
 
+    function garantirUfSelecionado() {
+        const selUf = document.querySelector("#selUsuarioUf");
+        if (!selUf) return;
+        if (selUf.value && selUf.value !== "null") return;
+        const primeira = [...selUf.options].find(o => o.value && o.value !== "null");
+        if (primeira) {
+            selUf.value = primeira.value;
+            selUf.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+    }
+
     function definirTipo(value) {
         const select = document.querySelector("#selUsuarioTipo");
         if (!select) return;
+        garantirUfSelecionado();
         select.value = value;
         select.dispatchEvent(new Event("change", { bubbles: true }));
         if (window.tratarTipo) window.tratarTipo();
@@ -1183,7 +1283,7 @@
         localStorage.removeItem(CLONE_FINALIZANDO_KEY);
         localStorage.removeItem(CLONE_SIGLA_KEY);
         localStorage.removeItem(CLONE_KEY);
-        setTimeout(() => alert("Lotações e perfis copiados com sucesso."), 300);
+        setTimeout(() => mostrarModalResultadoClonagem(), 300);
     } else if (localStorage.getItem(ATRIBUIR_FINALIZANDO_KEY) === "1") {
         localStorage.removeItem(ATRIBUIR_FINALIZANDO_KEY);
         setTimeout(() => alert("Lotação atribuída ao seu usuário com sucesso."), 300);
@@ -1446,6 +1546,7 @@
     }
 
     async function iniciarClonagemComItens(itens) {
+        limparResultados();
         adicionarNaPendencia(itens);
         mostrarOverlayClonagem("Copiando...");
         const minhaSigla = await obterSiglaPropria();
@@ -1479,9 +1580,17 @@
             normalizarBusca(grupo.perfil).includes(normalizarBusca(t.text))
         );
         if (!tipoAlvo) {
-            esconderOverlayClonagem();
-            alert(`Não encontrei o perfil "${grupo.perfil}" nesta tela.\nA cópia foi interrompida; os itens restantes continuam pendentes.`);
-            _processandoClonagem = false;
+            grupo.lotacoes.forEach(l => registrarResultado(l, grupo.perfil, "perfil_invalido"));
+            const restantes = grupos.slice(1);
+            salvarPendencias(restantes);
+            if (restantes.length) {
+                await continuarClonagem();
+            } else {
+                limparPendencias();
+                esconderOverlayClonagem();
+                _processandoClonagem = false;
+                mostrarModalResultadoClonagem();
+            }
             return;
         }
 
@@ -1498,16 +1607,22 @@
         for (const textoLotacao of grupo.lotacoes) {
             const alvoNorm = normalizar(textoLotacao);
             if (jaTenho.some(j => j.includes(alvoNorm) || alvoNorm.includes(j))) {
+                registrarResultado(textoLotacao, grupo.perfil, "ja_possui");
                 continue;
             }
             const opt = lotacoesDisponiveis.find(l => normalizar(l.text) === alvoNorm)
                      || lotacoesDisponiveis.find(l => normalizar(l.text).includes(alvoNorm) || alvoNorm.includes(normalizar(l.text)));
             if (!opt) {
-                console.warn("[Clonagem] Lotação não encontrada para este tipo:", textoLotacao);
+                registrarResultado(textoLotacao, grupo.perfil, "nao_encontrada");
                 continue;
             }
             const adicionou = adicionarNaLista(opt.value, opt.text);
-            if (adicionou) incluidas++;
+            if (adicionou) {
+                incluidas++;
+                registrarResultado(textoLotacao, grupo.perfil, "incluida");
+            } else {
+                registrarResultado(textoLotacao, grupo.perfil, "ja_possui");
+            }
             await sleep(200);
         }
 
@@ -1520,9 +1635,9 @@
                 await continuarClonagem();
             } else {
                 esconderOverlayClonagem();
-                alert("Lotações e perfis copiados com sucesso.");
                 localStorage.removeItem(CLONE_SIGLA_KEY);
                 _processandoClonagem = false;
+                mostrarModalResultadoClonagem();
             }
             return;
         }
@@ -1596,7 +1711,14 @@
                 const minhaSigla = localStorage.getItem(CLONE_SIGLA_KEY);
                 if (minhaSigla && siglaAtual === minhaSigla.toUpperCase()) {
                     _processandoClonagem = true;
-                    continuarClonagem();
+                    continuarClonagem().catch(e => {
+                        console.error("[Clonagem] Erro:", e);
+                        limparPendencias();
+                        limparResultados();
+                        esconderOverlayClonagem();
+                        _processandoClonagem = false;
+                        alert("Erro durante a cópia de perfil. A operação foi cancelada.\n" + e);
+                    });
                 } else {
                     esconderOverlayClonagem();
                 }

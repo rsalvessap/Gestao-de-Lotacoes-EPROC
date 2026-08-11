@@ -2,7 +2,30 @@
 
 Script para Tampermonkey que reúne, em um só lugar, diversas ferramentas para facilitar a administração de lotações de usuários no sistema eProc. Desenvolvido para tornar as tarefas de busca, inclusão e exclusão de lotações mais rápidas, intuitivas e eficientes.
 
-**Versão atual:** 1.15
+**Versão atual:** 1.16
+
+---
+
+## Novidades da v1.16
+
+### Relatório de resultado da cópia de perfil
+
+Ao copiar lotações de outro usuário, o script agora exibe um modal detalhado ao final da operação informando o status de **cada lotação** individualmente:
+
+* **Incluída** — lotação copiada com sucesso
+* **Já possui** — o usuário já possuía essa lotação
+* **Não encontrada** — lotação não disponível para o perfil selecionado
+* **Perfil não encontrado** — o tipo de perfil não existe nesta base
+
+O modal mostra o total de inclusões (ex: "3 de 5 lotações copiadas") e uma tabela com Lotação, Perfil e Status.
+
+### Correção crítica: seleção automática de UF
+
+Corrige a falha que impedia o funcionamento das funcionalidades **Copiar Perfil**, **Atribuir Lotação** e **Inclusão em Lote** em bases onde o campo de UF (`#selUsuarioUf`) não vinha pré-preenchido. Sem a UF selecionada, a função do sistema `tratarTipo()` não carregava nenhuma lotação, resultando em operações que aparentavam sucesso mas não adicionavam nada. Agora o script garante automaticamente que a UF esteja selecionada antes de carregar as lotações.
+
+### Botão Cancelar no overlay de progresso
+
+O overlay "Copiando..." agora exibe um botão **Cancelar** (após 3 segundos) que limpa todas as pendências e libera a tela, evitando loops irrecuperáveis.
 
 ---
 
