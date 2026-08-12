@@ -1308,6 +1308,7 @@
             <div class="eproc-gl-modal-header">Atribuir lotação a você</div>
             <div class="eproc-gl-modal-body">
                 <div style="font-size:12px;color:#666">Órgão do processo: <strong style="color:#1565c0">${nomeOrgao}</strong></div>
+                ${siglaLotacao ? '<div id="atribSiglaInfo" style="font-size:11px;color:#1565c0;margin-top:2px;font-weight:600">Lotação identificada (sigla ' + siglaLotacao + ') — será pré-selecionada ao carregar</div>' : ''}
                 <div>
                     <div style="font-size:12px;color:#666;margin-bottom:4px">Perfil (tipo de usuário)</div>
                     <select id="atribPerfil" class="eproc-gl-select" style="width:100%">
@@ -1317,7 +1318,7 @@
                 </div>
                 <div>
                     <div style="font-size:12px;color:#666;margin-bottom:4px">Lotação</div>
-                    <input id="atribBusca" class="eproc-gl-input" style="width:100%" placeholder="Filtrar lotações..." value="${nomeOrgao.replace(/"/g, "&quot;")}">
+                    <input id="atribBusca" class="eproc-gl-input" style="width:100%" placeholder="Filtrar lotações..." value="${siglaLotacao ? '' : nomeOrgao.replace(/"/g, '&quot;')}">
                     <div id="atribLista" class="eproc-gl-list" style="margin-top:6px;max-height:230px">
                         <p style="color:#888;font-size:13px;padding:8px">Selecione um perfil para carregar as lotações.</p>
                     </div>
@@ -1357,6 +1358,16 @@
             const matchSigla = encontrarPorSigla(siglaLotacao);
             if (matchSigla && !matches.some(m => m.value === matchSigla.value)) {
                 matches.unshift(matchSigla);
+            }
+
+            // Atualizar info com o nome real da lotação encontrada
+            const infoEl = document.getElementById("atribSiglaInfo");
+            if (infoEl && matchSigla) {
+                infoEl.innerHTML = 'Lotação identificada: <strong>' + matchSigla.text + '</strong>';
+                infoEl.style.color = "#2e7d32";
+            } else if (infoEl && siglaLotacao && !matchSigla) {
+                infoEl.textContent = 'Sigla ' + siglaLotacao + ' não encontrada neste perfil — selecione manualmente';
+                infoEl.style.color = "#e65100";
             }
 
             matches.sort((a, b) => {
