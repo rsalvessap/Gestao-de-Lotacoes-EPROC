@@ -424,6 +424,8 @@
     const SVG_LUPA    = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
     const SVG_CHECK   = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
     const SVG_ENTRAR  = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>`;
+    // Pessoa → Meu Cadastro
+    const SVG_USUARIO = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -905,6 +907,44 @@
         if (btnAdmin)   wrapperPos.appendChild(btnAdmin);
         if (btnGerente) wrapperPos.appendChild(btnGerente);
         if (btnJus)     wrapperPos.appendChild(btnJus);
+
+        // Botão "Meu Cadastro" — atalho para o cadastro do próprio usuário
+        const btnMeuCadastro = document.createElement("button");
+        btnMeuCadastro.type = "button";
+        btnMeuCadastro.innerHTML = SVG_USUARIO;
+        btnMeuCadastro.title = "Meu Cadastro";
+        btnMeuCadastro.className = "eproc-gl-nav-btn";
+        btnMeuCadastro.style.cssText = `height:${alturaSelect}px`;
+        btnMeuCadastro.onclick = async (e) => {
+            e.preventDefault();
+            let sigla = localStorage.getItem(MINHA_SIGLA_CACHE_KEY);
+            if (!sigla) {
+                sigla = await obterSiglaPropria();
+                if (sigla) localStorage.setItem(MINHA_SIGLA_CACHE_KEY, sigla);
+            }
+            if (!sigla) {
+                alert("Não foi possível detectar a sigla do usuário logado.");
+                return;
+            }
+            // Se já está na tela de cadastro, busca direto
+            const campo = document.querySelector("#txtSiglaOab");
+            if (campo) {
+                campo.value = sigla;
+                if (typeof window.consultar === "function") window.consultar();
+                else document.querySelector("#btnConsultar")?.click();
+                return;
+            }
+            // Navega para a tela de cadastro
+            sessionStorage.setItem("EPROC_ABRIR_MEU_CADASTRO", "1");
+            const linkCad = document.querySelector('a[href*="acao=usuario_listar"], a[href*="acao=usuario_cadastrar"]');
+            if (linkCad) {
+                window.location.href = linkCad.href;
+            } else {
+                window.location.href = window.location.origin + "/eproc/externo_controlador.php?acao=usuario_cadastro_meu";
+            }
+        };
+        wrapperPos.appendChild(btnMeuCadastro);
+
         container.after(wrapperPos);
 
         atualizarBotoesNav();
@@ -1288,6 +1328,21 @@
     } else if (localStorage.getItem(ATRIBUIR_FINALIZANDO_KEY) === "1") {
         localStorage.removeItem(ATRIBUIR_FINALIZANDO_KEY);
         setTimeout(() => alert("Lotação atribuída ao seu usuário com sucesso."), 300);
+    }
+
+    // Atalho "Meu Cadastro" — auto-busca ao chegar na tela de cadastro
+    if (sessionStorage.getItem("EPROC_ABRIR_MEU_CADASTRO")) {
+        sessionStorage.removeItem("EPROC_ABRIR_MEU_CADASTRO");
+        const _siglaMeuCadastro = localStorage.getItem(MINHA_SIGLA_CACHE_KEY);
+        if (_siglaMeuCadastro) {
+            const _timerMeuCadastro = setInterval(() => {
+                if (document.querySelector("#txtSiglaOab")) {
+                    clearInterval(_timerMeuCadastro);
+                    try { buscarProprioUsuario(_siglaMeuCadastro); }
+                    catch (e) { console.error("[Meu Cadastro]", e); }
+                }
+            }, 500);
+        }
     }
 
     async function abrirModalAtribuir(nomeOrgao, siglaLotacao) {
