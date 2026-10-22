@@ -2,7 +2,28 @@
 
 Script para Tampermonkey que reúne, em um só lugar, diversas ferramentas para facilitar a administração de lotações de usuários no sistema eProc. Desenvolvido para tornar as tarefas de busca, inclusão e exclusão de lotações mais rápidas, intuitivas e eficientes.
 
-**Versão atual:** 1.16
+**Versão atual:** 1.18
+
+---
+
+## Novidades da v1.18
+
+### Correção: lotação do órgão julgador identificada na base correta
+
+A identificação da lotação na capa do processo passou a considerar **a base em que o processo está** (o agrupamento do seletor de lotações: SP, TJSP, CR, EF).
+
+Antes, a busca varria todas as lotações de todas as bases. Em unidades que possuem lotação em mais de uma base, isso gerava um falso positivo: estando logado na **EF**, o script indicava "Lotação atual" ou "Acessar Lotação" apontando para a lotação da base **SP**. Agora:
+
+* O match considera apenas as lotações da base ativa — se você não tem a lotação naquela base, o botão oferece corretamente **Incluir lotação** / **Ir para lotação ADM**;
+* O perfil **Administrador** usado para a inclusão também é procurado na mesma base, evitando que a lotação fosse cadastrada na base errada.
+
+---
+
+## Novidades da v1.17
+
+### Botão "Meu Cadastro"
+
+Novo atalho no cabeçalho, ao lado dos botões ADM / Gerente / Jus Postulandi. O script detecta a sigla do usuário logado e abre direto a tela de cadastro já com a sua consulta carregada.
 
 ---
 
