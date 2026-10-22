@@ -1381,7 +1381,19 @@
                 _mostrarTodosTipos = !_mostrarTodosTipos;
                 atualizarBotaoTipos(select, aplicarFiltroTipos(select));
             };
-            select.after(btn);
+            // Envolve o select num flex para o botão ficar ao lado dele, não abaixo
+            let wrap = select.parentElement;
+            if (!wrap || !wrap.classList.contains("eproc-gl-tipos-wrap")) {
+                wrap = document.createElement("div");
+                wrap.className = "eproc-gl-tipos-wrap";
+                wrap.style.cssText = "display:flex;align-items:center;gap:6px;width:100%";
+                select.parentNode.insertBefore(wrap, select);
+                wrap.appendChild(select);
+                select.style.flex = "1 1 auto";
+                select.style.minWidth = "0";
+            }
+            btn.style.flex = "0 0 auto";
+            wrap.appendChild(btn);
         }
         if (_mostrarTodosTipos) {
             btn.textContent = "Mostrar só os usados";
