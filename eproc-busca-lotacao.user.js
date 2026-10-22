@@ -1376,7 +1376,7 @@
             btn.type = "button";
             btn.id = "eproc-btn-tipos-todos";
             btn.className = "eproc-gl-nav-btn";
-            btn.style.cssText = "margin-left:6px;padding:2px 8px;font-size:11px;vertical-align:middle";
+            btn.style.cssText = "padding:2px 8px;font-size:11px;white-space:nowrap";
             btn.onclick = () => {
                 _mostrarTodosTipos = !_mostrarTodosTipos;
                 atualizarBotaoTipos(select, aplicarFiltroTipos(select));
@@ -1389,7 +1389,7 @@
                 wrap.style.cssText = "display:flex;align-items:center;gap:6px;width:100%";
                 select.parentNode.insertBefore(wrap, select);
                 wrap.appendChild(select);
-                select.style.flex = "1 1 auto";
+                // Sem flex-grow: o select mantém a largura nativa; só pode encolher
                 select.style.minWidth = "0";
             }
             btn.style.flex = "0 0 auto";
