@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gestão de Lotações - EPROC
 // @namespace    eproc-gestao-lotacoes
-// @version      1.17
+// @version      1.18
 // @updateURL    https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js
 // @downloadURL  https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js
 // @include      *://eproc*.tjsp.jus.br/*
@@ -661,6 +661,22 @@
         return CORES_GRUPO[(grupo || "").toUpperCase()] || "#607d8b";
     }
 
+    // Base (optgroup) a que pertence uma opção do select de lotações
+    function baseDaOpcao(opt) {
+        const pai = opt && opt.parentElement;
+        return (pai && pai.tagName === "OPTGROUP") ? (pai.label || "").trim() : "";
+    }
+    function baseAtual(select) {
+        return baseDaOpcao(select.options[select.selectedIndex]);
+    }
+    // Opções da mesma base da lotação ativa (sem optgroups, devolve todas)
+    function opcoesDaBaseAtual(select) {
+        const todas = Array.from(select.options).filter(o => o.value);
+        const base = baseAtual(select);
+        if (!base) return todas;
+        return todas.filter(o => baseDaOpcao(o) === base);
+    }
+
     // ==============================
     // HISTÓRICO (sessionStorage)
     // ==============================
@@ -995,13 +1011,16 @@
         const orgaoNorm = normalizar(orgaoLimpo);
         const orgaoNormAlt = normOrgao(orgaoLimpo);
 
+        // Só considerar lotações da mesma base do processo (base em que estou logado).
+        // Unidades com lotação em mais de uma base (ex: SP e EF) geravam match na base errada.
+        const opcoes = opcoesDaBaseAtual(select);
+
         // Lookup direto no mapa CSV (prioridade máxima)
         const siglaEsperada = MAPA_ORGAO_SIGLA[orgaoNormAlt];
         if (siglaEsperada) {
             // Busca por valor exato, ou valor com perfil (ex: "CVE1JEC" → "CVE1JEC/CHEFE DE CARTÓRIO"),
             // ou sigla presente no texto da opção
-            for (const opt of select.options) {
-                if (!opt.value) continue;
+            for (const opt of opcoes) {
                 if (opt.value === siglaEsperada
                     || opt.value.startsWith(siglaEsperada + "/")
                     || opt.text.includes(siglaEsperada)) return opt;
@@ -1016,8 +1035,7 @@
 
         // Fallback 1: texto normalizado da lotação contido no texto do órgão
         let melhor = null, melhorLen = 0;
-        for (const opt of select.options) {
-            if (!opt.value) continue;
+        for (const opt of opcoes) {
             const lotNorm = normalizar(opt.text);
             if (!lotNorm) continue;
             if (orgaoNorm.includes(lotNorm) && lotNorm.length > melhorLen) {
@@ -1031,8 +1049,7 @@
         // 2ª tentativa: sobreposição de palavras (≥ 60%)
         const palavrasOrgao = orgaoNorm.split(/\s+/).filter(p => p.length > 2);
         let melhorScore = 0;
-        for (const opt of select.options) {
-            if (!opt.value) continue;
+        for (const opt of opcoes) {
             if (!varaCompativel(numVara, opt.text)) continue;
             const lotNorm = normalizar(opt.text);
             const palavrasLot = lotNorm.split(/\s+/).filter(p => p.length > 2);
@@ -1056,8 +1073,7 @@
 
         if (locaisOrgao.length) {
             melhorScore = 0;
-            for (const opt of select.options) {
-                if (!opt.value) continue;
+            for (const opt of opcoes) {
                 if (!varaCompativel(numVara, opt.text)) continue;
                 const lotNormAlt = normOrgao(opt.text);
                 const locaisLot = extrairLocais(lotNormAlt);
@@ -1177,8 +1193,9 @@
                     }
                 };
             } else {
-                // Procura a lotação de administrador no select
-                const optAdmin = Array.from(select.options).find(opt =>
+                // Procura a lotação de administrador na mesma base do processo
+                // (incluir a lotação em outra base cadastraria na base errada)
+                const optAdmin = opcoesDaBaseAtual(select).find(opt =>
                     /ADMINISTRADOR/i.test(opt.text)
                 );
                 if (optAdmin) {
