@@ -2,7 +2,19 @@
 
 Script para Tampermonkey que reúne, em um só lugar, diversas ferramentas para facilitar a administração de lotações de usuários no sistema eProc. Desenvolvido para tornar as tarefas de busca, inclusão e exclusão de lotações mais rápidas, intuitivas e eficientes.
 
-**Versão atual:** 1.18
+**Versão atual:** 1.19
+
+---
+
+## Novidades da v1.19
+
+### Lista de "Tipo de Usuário" enxuta
+
+No cadastro de usuário, o seletor nativo **Tipo de Usuário** passa a exibir apenas os tipos realmente utilizados:
+
+Magistrado · Secretário · Estagiário · Servidor Gabinete/Secretaria · Diretor · Servidor Unidade Judicial · Estagiário Outras Bases · Servidor Unidade Judicial Avançado · Chefe de Cartório · Conciliador Externo · Servidor Central de Mandados · Oficial de Justiça · Diretor Central de Mandados · Distribuição
+
+Ao lado do seletor há o botão **Mostrar todos (+N)**, que revela a lista completa quando necessário (e **Mostrar só os usados** para voltar). Os tipos ocultos continuam no formulário — nada é removido, então o comportamento nativo do eProc e as automações do script seguem funcionando normalmente.
 
 ---
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gestão de Lotações - EPROC
 // @namespace    eproc-gestao-lotacoes
-// @version      1.18
+// @version      1.19
 // @updateURL    https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js
 // @downloadURL  https://raw.githubusercontent.com/rsalvessap/Gestao-de-Lotacoes-EPROC/main/eproc-busca-lotacao.user.js
 // @include      *://eproc*.tjsp.jus.br/*
@@ -1325,6 +1325,87 @@
         if (!linhas.length) return [];
         return [...linhas].map(tr => normalizar(tr.innerText || "")).filter(Boolean);
     }
+
+    // ==============================
+    // MÓDULO 7 — FILTRO DE TIPOS DE USUÁRIO (#selUsuarioTipo nativo)
+    // ==============================
+    // Tipos realmente utilizados. Os demais ficam ocultos no select nativo até
+    // o usuário clicar em "Mostrar todos". Comparação sem acento/caixa/pontuação.
+    const TIPOS_USADOS = [
+        "Magistrado",
+        "Secretário",
+        "Estagiário",
+        "Servidor Gabinete/Secretaria",
+        "Diretor",
+        "Servidor Unidade Judicial",
+        "Estagiário Outras Bases",
+        "Servidor Unidade Judicial Avançado",
+        "Chefe de Cartório",
+        "Conciliador Externo",
+        "Servidor Central de Mandados",
+        "Oficial de Justiça",
+        "Diretor Central de Mandados",
+        "Distribuição"
+    ];
+    const TIPOS_USADOS_SET = new Set(TIPOS_USADOS.map(normOrgao));
+
+    let _mostrarTodosTipos = false;
+    let _qtdTiposAnterior = -1;
+
+    function tipoEhUsado(opt) {
+        // Placeholder e opção selecionada sempre visíveis
+        if (!opt.value || opt.value === "null") return true;
+        if (opt.selected) return true;
+        return TIPOS_USADOS_SET.has(normOrgao(opt.text));
+    }
+
+    function aplicarFiltroTipos(select) {
+        let ocultos = 0;
+        [...select.options].forEach(opt => {
+            const esconder = !_mostrarTodosTipos && !tipoEhUsado(opt);
+            opt.hidden = esconder;
+            if (esconder) ocultos++;
+        });
+        return ocultos;
+    }
+
+    function atualizarBotaoTipos(select, ocultos) {
+        let btn = document.getElementById("eproc-btn-tipos-todos");
+        if (!btn) {
+            btn = document.createElement("button");
+            btn.type = "button";
+            btn.id = "eproc-btn-tipos-todos";
+            btn.className = "eproc-gl-nav-btn";
+            btn.style.cssText = "margin-left:6px;padding:2px 8px;font-size:11px;vertical-align:middle";
+            btn.onclick = () => {
+                _mostrarTodosTipos = !_mostrarTodosTipos;
+                atualizarBotaoTipos(select, aplicarFiltroTipos(select));
+            };
+            select.after(btn);
+        }
+        if (_mostrarTodosTipos) {
+            btn.textContent = "Mostrar só os usados";
+            btn.title = "Voltar a exibir apenas os tipos de usuário utilizados";
+        } else {
+            btn.textContent = `Mostrar todos (+${ocultos})`;
+            btn.title = `${ocultos} tipo(s) de usuário pouco usados estão ocultos — clique para exibir`;
+        }
+        btn.style.display = (_mostrarTodosTipos || ocultos > 0) ? "inline-flex" : "none";
+    }
+
+    setInterval(() => {
+        const select = document.querySelector("#selUsuarioTipo");
+        if (!select) return;
+        // Reaplica quando o eProc repopula o select (ex: troca de UF)
+        if (select.options.length === _qtdTiposAnterior) return;
+        _qtdTiposAnterior = select.options.length;
+        atualizarBotaoTipos(select, aplicarFiltroTipos(select));
+        if (!select.dataset.eprocFiltroTipos) {
+            select.dataset.eprocFiltroTipos = "1";
+            // Mantém visível o tipo escolhido via automação do script
+            select.addEventListener("change", () => atualizarBotaoTipos(select, aplicarFiltroTipos(select)));
+        }
+    }, 500);
 
     // ==============================
     // MÓDULO 5 — ATRIBUIR LOTAÇÃO (na tela de cadastro de usuário)
